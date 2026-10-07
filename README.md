@@ -1,8 +1,24 @@
 # LeetBar
 
-## LeetBar Overview
-
 LeetBar puts your LeetCode daily challenge, streak, contest rating, practice totals, study-plan progress, and upcoming contests in the macOS menu bar. Keep up to four personal practice links one click away in its expandable Quick Links section.
+
+## I don't have Xcode, and I just want to use it!
+
+**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.2/LeetBar-0.1.0-preview.2-macos-arm64.zip)**
+
+For **Apple silicon Macs (M1 or later)** running **macOS 14 or later**. This is **Preview 2**, including Study Plans. This download does not support Intel Macs.
+
+**No Xcode, Terminal, or GitHub account needed to install.**
+
+1. Open the downloaded ZIP to extract **LeetBar**.
+2. Drag **LeetBar** into **Applications**.
+3. Open **LeetBar**, then click its icon in the **menu bar at the top of your screen**. There is no Dock icon or main window.
+
+**If macOS blocks the first launch:** this preview is not Apple-notarized. After attempting to open it, go to **System Settings > Privacy & Security > Open Anyway**, then confirm. Proceed only if you trust this download. Managed Macs may prohibit this approval; do not disable macOS security protections.
+
+Next, [connect your LeetCode account](#connect-your-account). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.2#security-and-known-limitations) before connecting.
+
+## LeetBar Overview
 
 Choose what you see in **Settings > Sections**: show or hide **Quick Links**, **Upcoming Contests**, **Today**, and **Study Plans** independently. All four are shown by default, and your choices are saved automatically. Hiding a section does not delete your saved links or disconnect your account.
 
@@ -22,19 +38,20 @@ LeetBar's original source code and documentation are licensed under the [MIT Lic
 - Want to check active study-plan progress and continue with the next question.
 - Keep practice sheets, notes, or study plans online and want shortcuts to them.
 
-A [private preview download](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.1) is available for Apple Silicon Macs running macOS 14 or later. Sign in to a GitHub account with access to this private repository. Under **Assets**, download the app ZIP, not the Source code archives, extract it, and drag the app into Applications. **Xcode is not required to run the downloaded app.**
-
-**The v0.1.0-preview.1 ZIP does not include Study Plans.** Build the latest source using either method below to use that section. The preview is not Apple-notarized; its release page includes first-launch approval instructions and known limitations.
-
 ## System Requirements
 
-- **macOS 14 or later.** Currently tested on Apple Silicon; Intel compatibility has not been verified.
-- **Xcode with Swift 6 support** to build from source. Tested with Xcode 26.5. Install full Xcode, not just the standalone Command Line Tools.
+### To use the downloaded app
+
+- **Apple silicon Mac (M1 or later)** with **macOS 14 or later**. The download does not support Intel Macs.
 - **Internet access and a LeetCode account** for live statistics. Quick Links work without a connected account.
 - **Chrome** for the account-connection instructions below. Other browsers have different developer-tool menus.
+
+### Only if building from source
+
+- **Xcode with Swift 6 support.** Tested with Xcode 26.5. Install full Xcode, not just the standalone Command Line Tools. Intel source-build compatibility has not been verified.
 - **XcodeGen 2.45 or later**, only if regenerating the project. It is not required to open or build the included Xcode project.
 
-No paid Apple developer account is needed to build and run locally. These local builds are not notarized distribution builds.
+No paid Apple developer account is needed to build or run locally.
 
 ## Connect Your Account
 
