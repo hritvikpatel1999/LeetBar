@@ -12,6 +12,8 @@ In **Settings > Menu Bar**, you can also show or hide the streak count beside th
 
 LeetBar is an unofficial companion, not affiliated with LeetCode. The LeetCode name and logo belong to LeetCode.
 
+LeetBar's original source code and documentation are licensed under the [MIT License](LICENSE). The bundled LeetCode logo images are excluded from that license. This project grants no rights to LeetCode's names, logos, or trademarks; those remain subject to their owners' rights.
+
 ## Download This If You
 
 - Want a quick check of your daily challenge completion and streak.
