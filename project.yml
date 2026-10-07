@@ -1,0 +1,53 @@
+name: LeetBar
+fileGroups:
+  - README.md
+  - project.yml
+options:
+  minimumXcodeGenVersion: 2.45.0
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+targets:
+  LeetBar:
+    type: application
+    platform: macOS
+    sources:
+      - LeetBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.leetbar.app
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: LeetBar
+        INFOPLIST_KEY_LSUIElement: YES
+        ENABLE_HARDENED_RUNTIME: YES
+  LeetBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - LeetBarTests
+      - LeetBar/DashboardData.swift
+      - LeetBar/LeetCodeSession.swift
+      - LeetBar/LeetCodeClient.swift
+      - LeetBar/AccountStore.swift
+      - LeetBar/QuickLinksStore.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.leetbar.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  LeetBar:
+    build:
+      targets:
+        LeetBar: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - LeetBarTests
