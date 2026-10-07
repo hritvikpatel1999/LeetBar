@@ -1,6 +1,128 @@
 import XCTest
 
 final class LeetCodeClientTests: XCTestCase {
+    func testStudyPlansLoadCountsNextQuestionAndLimit() async throws {
+        let records = (1...4).map { studyPlanRecord(slug: "plan-\($0)") }
+        let transport = MockLeetCodeTransport(responses: [(200, try studyPlanResponse(records))])
+        let plans = try await LeetCodeClient(transport: transport).studyPlans(session: session())
+        XCTAssertEqual(plans.count, 3)
+        XCTAssertEqual(plans.map(\.id), ["plan-1", "plan-2", "plan-3"])
+        let first = try XCTUnwrap(plans.first)
+        XCTAssertEqual(first.plan.name, "LeetCode 75")
+        XCTAssertEqual(first.finishedQuestionNum, 18)
+        XCTAssertEqual(first.plan.questionNum, 75)
+        XCTAssertEqual(first.url?.absoluteString, "https://leetcode.com/studyplan/plan-1/")
+        XCTAssertEqual(first.nextQuestionInfo?.nextQuestion?.title, "Is Subsequence")
+        XCTAssertEqual(
+            first.nextQuestionInfo?.nextQuestion?.url?.absoluteString,
+            "https://leetcode.com/problems/is-subsequence/")
+        let requests = await transport.requests
+        let request = try XCTUnwrap(requests.first)
+        let body = try XCTUnwrap(try JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+        XCTAssertEqual((body["variables"] as? [String: Int])?["limit"], 3)
+        XCTAssertTrue((body["query"] as? String)?.contains("progressType: ON_GOING") == true)
+        XCTAssertEqual(request.url?.absoluteString, "https://leetcode.com/graphql/")
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "Cookie"), "LEETCODE_SESSION=test-session; csrftoken=test-csrf")
+    }
+
+    func testStudyPlansDistinguishEmptyFromUnavailable() async throws {
+        let transport = MockLeetCodeTransport(responses: [(200, try studyPlanResponse([]))])
+        let plans = try await LeetCodeClient(transport: transport).studyPlans(session: session())
+        XCTAssertTrue(plans.isEmpty)
+        for body in [
+            "{\"data\":{}}", "{\"data\":{\"studyPlanV2UserProgresses\":null}}",
+            "{\"data\":{\"studyPlanV2UserProgresses\":{}}}",
+            "{\"errors\":[{\"message\":\"private service detail\"}]}",
+        ] {
+            let unavailable = MockLeetCodeTransport(responses: [(200, body)])
+            do {
+                _ = try await LeetCodeClient(transport: unavailable).studyPlans(session: session())
+                XCTFail("Expected unavailable study plans")
+            } catch {
+                XCTAssertEqual(error as? LeetCodeError, .invalidResponse)
+            }
+        }
+    }
+
+    func testStudyPlansHandleMissingNextQuestionAndZeroProgress() async throws {
+        for nextInfo: Any in [NSNull(), ["nextQuestion": NSNull()]] {
+            var record = studyPlanRecord(completed: 0)
+            record["nextQuestionInfo"] = nextInfo
+            let transport = MockLeetCodeTransport(responses: [(200, try studyPlanResponse([record]))])
+            let plans = try await LeetCodeClient(transport: transport).studyPlans(session: session())
+            XCTAssertEqual(plans.first?.finishedQuestionNum, 0)
+            XCTAssertEqual(plans.first?.plan.questionNum, 75)
+            XCTAssertNil(plans.first?.nextQuestionInfo?.nextQuestion)
+        }
+    }
+
+    func testStudyPlansRejectInvalidCountsAndDuplicatePlans() async throws {
+        let duplicate = studyPlanRecord()
+        for records in [
+            [studyPlanRecord(completed: -1)], [studyPlanRecord(completed: 76)],
+            [studyPlanRecord(total: -1)], [studyPlanRecord(slug: "../logout")], [duplicate, duplicate],
+        ] {
+            let transport = MockLeetCodeTransport(responses: [(200, try studyPlanResponse(records))])
+            do {
+                _ = try await LeetCodeClient(transport: transport).studyPlans(session: session())
+                XCTFail("Expected invalid study plan data")
+            } catch {
+                XCTAssertEqual(error as? LeetCodeError, .invalidResponse)
+            }
+        }
+    }
+
+    func testStudyPlanLinksRejectUnsafeSlugs() throws {
+        for slug in ["", "../logout", "https://example.com/", "plan?redirect=bad", "plan#fragment", "a/b"] {
+            var record = studyPlanRecord(slug: slug)
+            record["nextQuestionInfo"] = ["nextQuestion": ["title": "Next", "titleSlug": slug]]
+            let plan = try JSONDecoder().decode(
+                LiveStudyPlan.self, from: JSONSerialization.data(withJSONObject: record))
+            XCTAssertNil(plan.url)
+            XCTAssertNil(plan.nextQuestionInfo?.nextQuestion?.url)
+        }
+    }
+
+    func testDashboardKeepsOtherSectionsWhenStudyPlansFail() async throws {
+        let transport = MockLeetCodeTransport(responses: [
+            (
+                200,
+                "{\"data\":{\"activeDailyCodingChallengeQuestion\":{\"date\":\"2026-10-07\",\"userStatus\":\"Finish\",\"link\":\"/problems/example/\",\"question\":{\"title\":\"Example\",\"titleSlug\":\"example\",\"difficulty\":\"Easy\"}}}}"
+            ),
+            (200, "{\"data\":{\"submissionList\":{\"hasNext\":false,\"submissions\":[]}}}"),
+            (200, "{\"data\":{\"topTwoContests\":[]}}"),
+            (200, "{\"errors\":[{\"message\":\"unavailable\"}]}"),
+            (200, "{\"data\":{\"streakCounter\":{\"streakCount\":8}}}"),
+            (200, "{\"data\":{\"userContestRanking\":null}}"),
+        ])
+        let dashboard = try await LeetCodeClient(transport: transport).dashboard(
+            session: session(), username: "example", now: .now, calendar: .current)
+        XCTAssertNil(dashboard.studyPlans)
+        XCTAssertEqual(dashboard.daily?.isCompleted, true)
+        XCTAssertEqual(dashboard.stats, DailyStats(submissions: 0, problemsSolved: 0))
+        XCTAssertEqual(dashboard.contests?.count, 0)
+        XCTAssertEqual(dashboard.streak, 8)
+        XCTAssertEqual(dashboard.contestRating, .unrated)
+        XCTAssertEqual(dashboard.issues.count, 1)
+        XCTAssertTrue(dashboard.issues[0].hasPrefix("Study plans:"))
+    }
+
+    private func studyPlanRecord(completed: Int = 18, total: Int = 75, slug: String = "leetcode-75") -> [String: Any] {
+        [
+            "plan": ["name": "LeetCode 75", "slug": slug, "questionNum": total],
+            "finishedQuestionNum": completed,
+            "nextQuestionInfo": ["nextQuestion": ["title": "Is Subsequence", "titleSlug": "is-subsequence"]],
+        ]
+    }
+
+    private func studyPlanResponse(_ records: [[String: Any]]) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "data": ["studyPlanV2UserProgresses": ["planUserProgresses": records]]
+        ])
+        return String(decoding: data, as: UTF8.self)
+    }
+
     func testContestRatingLoadsForTheRequestedUsername() async throws {
         let transport = MockLeetCodeTransport(responses: [
             (200, "{\"data\":{\"userContestRanking\":{\"rating\":1641.6,\"attendedContestsCount\":12}}}")
@@ -71,6 +193,7 @@ final class LeetCodeClientTests: XCTestCase {
             ),
             (200, "{\"errors\":[{\"message\":\"unavailable\"}]}"),
             (200, "{\"data\":{\"topTwoContests\":[]}}"),
+            (200, try studyPlanResponse([studyPlanRecord()])),
             (200, "{\"data\":{\"streakCounter\":{\"streakCount\":8}}}"),
             (200, "{\"data\":{\"userContestRanking\":{\"rating\":1641.6,\"attendedContestsCount\":12}}}"),
         ])
@@ -80,6 +203,7 @@ final class LeetCodeClientTests: XCTestCase {
         XCTAssertEqual(result.daily?.url?.host, "leetcode.com")
         XCTAssertNil(result.stats)
         XCTAssertEqual(result.contests?.count, 0)
+        XCTAssertEqual(result.studyPlans?.first?.finishedQuestionNum, 18)
         XCTAssertEqual(result.streak, 8)
         XCTAssertEqual(result.contestRating, .rated(1641.6))
         XCTAssertEqual(result.issues.count, 1)
@@ -101,6 +225,7 @@ final class LeetCodeClientTests: XCTestCase {
                 ),
                 (200, "{\"data\":{\"submissionList\":{\"hasNext\":false,\"submissions\":[]}}}"),
                 (200, "{\"data\":{\"topTwoContests\":[]}}"),
+                (200, try studyPlanResponse([])),
                 (200, body),
                 (200, "{\"data\":{\"userContestRanking\":null}}"),
             ])
@@ -128,6 +253,7 @@ final class LeetCodeClientTests: XCTestCase {
             ),
             (200, "{\"data\":{\"submissionList\":{\"hasNext\":false,\"submissions\":[]}}}"),
             (200, "{\"data\":{\"topTwoContests\":[]}}"),
+            (200, try studyPlanResponse([])),
             (200, "{\"data\":{\"streakCounter\":{\"streakCount\":8}}}"),
             (200, "{\"errors\":[{\"message\":\"unavailable\"}]}"),
         ])

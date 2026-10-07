@@ -2,9 +2,11 @@
 
 ## LeetBar Overview
 
-LeetBar puts your LeetCode daily challenge, streak, contest rating, practice totals, and upcoming contests in the macOS menu bar. Keep up to four personal practice links one click away in its expandable Quick Links section.
+LeetBar puts your LeetCode daily challenge, streak, contest rating, practice totals, study-plan progress, and upcoming contests in the macOS menu bar. Keep up to four personal practice links one click away in its expandable Quick Links section.
 
-Choose what you see in **Settings > Sections**: show or hide **Quick Links**, **Upcoming Contests**, and **Today** independently. All three are shown by default, and your choices are saved automatically. Hiding a section does not delete your saved links or disconnect your account.
+Choose what you see in **Settings > Sections**: show or hide **Quick Links**, **Upcoming Contests**, **Today**, and **Study Plans** independently. All four are shown by default, and your choices are saved automatically. Hiding a section does not delete your saved links or disconnect your account.
+
+The **Study Plans** section appears after **Today**, starts collapsed, and shows up to three active plans from your connected LeetCode account. Expand it to see each plan's name, completed/total question counts, and a **Next Question** link when available. Progress is shown as counts, not percentages. Click a plan name to open it on LeetCode. Use **Show Study Plans** in Settings to hide or restore the section.
 
 In **Settings > Menu Bar**, you can also show or hide the streak count beside the menu-bar icon.
 
@@ -15,9 +17,12 @@ LeetBar is an unofficial companion, not affiliated with LeetCode. The LeetCode n
 - Want a quick check of your daily challenge completion and streak.
 - Track today's submissions and distinct problems solved.
 - Want your contest rating and upcoming contest times at a glance.
+- Want to check active study-plan progress and continue with the next question.
 - Keep practice sheets, notes, or study plans online and want shortcuts to them.
 
-**Currently available as source code only.** There is no packaged DMG release yet; build and run the app using either method below.
+A [private preview download](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.1) is available for Apple Silicon Macs running macOS 14 or later. Sign in to a GitHub account with access to this private repository. Under **Assets**, download the app ZIP, not the Source code archives, extract it, and drag the app into Applications. **Xcode is not required to run the downloaded app.**
+
+**The v0.1.0-preview.1 ZIP does not include Study Plans.** Build the latest source using either method below to use that section. The preview is not Apple-notarized; its release page includes first-launch approval instructions and known limitations.
 
 ## System Requirements
 

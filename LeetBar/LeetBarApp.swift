@@ -7,6 +7,7 @@ struct LeetBarApp: App {
     @AppStorage("showQuickLinks") private var showQuickLinks = true
     @AppStorage("showUpcomingContests") private var showUpcomingContests = true
     @AppStorage("showTodaySection") private var showTodaySection = true
+    @AppStorage("showStudyPlans") private var showStudyPlans = true
     @StateObject private var account = AccountStore()
     @StateObject private var quickLinks = QuickLinksStore()
 
@@ -14,7 +15,8 @@ struct LeetBarApp: App {
         MenuBarExtra {
             DashboardView(
                 account: account, quickLinks: quickLinks, showQuickLinks: showQuickLinks,
-                showUpcomingContests: showUpcomingContests, showTodaySection: showTodaySection
+                showUpcomingContests: showUpcomingContests, showTodaySection: showTodaySection,
+                showStudyPlans: showStudyPlans
             )
         } label: {
             Image("LeetCodeMenuBar")
@@ -29,7 +31,8 @@ struct LeetBarApp: App {
         Settings {
             SettingsView(
                 showStreak: $showStreak, showQuickLinks: $showQuickLinks, showUpcomingContests: $showUpcomingContests,
-                showTodaySection: $showTodaySection, account: account, quickLinks: quickLinks
+                showTodaySection: $showTodaySection, showStudyPlans: $showStudyPlans, account: account,
+                quickLinks: quickLinks
             )
             .onAppear {
                 NSApplication.shared.activate(ignoringOtherApps: true)

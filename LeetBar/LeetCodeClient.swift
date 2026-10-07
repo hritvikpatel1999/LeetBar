@@ -119,10 +119,45 @@ struct LiveContest: Decodable, Sendable, Identifiable {
     }
 }
 
+struct LiveStudyPlan: Decodable, Sendable, Identifiable {
+    static let maximumCount = 3
+
+    struct Plan: Decodable, Sendable {
+        let name: String
+        let slug: String
+        let questionNum: Int
+    }
+
+    struct NextQuestionInfo: Decodable, Sendable {
+        struct Question: Decodable, Sendable {
+            let title: String
+            let titleSlug: String
+
+            var url: URL? { LiveStudyPlan.url(for: titleSlug, section: "problems") }
+        }
+
+        let nextQuestion: Question?
+    }
+
+    let plan: Plan
+    let finishedQuestionNum: Int
+    let nextQuestionInfo: NextQuestionInfo?
+
+    var id: String { plan.slug }
+    var url: URL? { Self.url(for: plan.slug, section: "studyplan") }
+
+    private static func url(for slug: String, section: String) -> URL? {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+        guard !slug.isEmpty, slug.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return nil }
+        return URL(string: "https://leetcode.com/\(section)/")!.appendingPathComponent(slug, isDirectory: true)
+    }
+}
+
 struct LiveDashboard: Sendable {
     let daily: LiveDailyChallenge?
     let stats: DailyStats?
     let contests: [LiveContest]?
+    let studyPlans: [LiveStudyPlan]?
     let streak: Int?
     let contestRating: ContestRating?
     let checkedAt: Date
@@ -186,6 +221,31 @@ struct LeetCodeClient: LeetCodeServing {
         return .rated(rating)
     }
 
+    func studyPlans(session: LeetCodeSession) async throws -> [LiveStudyPlan] {
+        struct Page: Decodable { let planUserProgresses: [LiveStudyPlan] }
+        struct Payload: Decodable { let studyPlanV2UserProgresses: Page }
+        let payload: Payload = try await query(
+            """
+            query LeetBarStudyPlans($limit: Int!) {
+                studyPlanV2UserProgresses(progressType: ON_GOING, offset: 0, limit: $limit) {
+                    planUserProgresses {
+                        plan { name slug questionNum }
+                        finishedQuestionNum
+                        nextQuestionInfo { nextQuestion { title titleSlug } }
+                    }
+                }
+            }
+            """, variables: ["limit": .integer(LiveStudyPlan.maximumCount)], session: session)
+        let plans = Array(payload.studyPlanV2UserProgresses.planUserProgresses.prefix(LiveStudyPlan.maximumCount))
+        guard Set(plans.map(\.id)).count == plans.count,
+            plans.allSatisfy({
+                !$0.plan.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && $0.url != nil && $0.finishedQuestionNum >= 0 && $0.plan.questionNum >= $0.finishedQuestionNum
+            })
+        else { throw LeetCodeError.invalidResponse }
+        return plans
+    }
+
     func dashboard(session: LeetCodeSession, username: String, now: Date, calendar: Calendar) async throws
         -> LiveDashboard
     {
@@ -193,6 +253,7 @@ struct LeetCodeClient: LeetCodeServing {
         var daily: LiveDailyChallenge?
         var stats: DailyStats?
         var contests: [LiveContest]?
+        var plans: [LiveStudyPlan]?
         var streak: Int?
         var rating: ContestRating?
 
@@ -235,6 +296,13 @@ struct LeetCodeClient: LeetCodeServing {
         }
 
         do {
+            plans = try await studyPlans(session: session)
+        } catch {
+            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
+            issues.append("Study plans: \(Self.message(for: error))")
+        }
+
+        do {
             struct Counter: Decodable { let streakCount: Int }
             struct Payload: Decodable { let streakCounter: Counter? }
             let payload: Payload = try await query(
@@ -256,7 +324,7 @@ struct LeetCodeClient: LeetCodeServing {
         }
 
         return LiveDashboard(
-            daily: daily, stats: stats, contests: contests, streak: streak, contestRating: rating,
+            daily: daily, stats: stats, contests: contests, studyPlans: plans, streak: streak, contestRating: rating,
             checkedAt: now, issues: issues)
     }
 

@@ -7,9 +7,14 @@ struct DashboardView: View {
     let showQuickLinks: Bool
     let showUpcomingContests: Bool
     let showTodaySection: Bool
+    let showStudyPlans: Bool
     @State private var isDailyRowHovered = false
     @State private var isTodayExpanded = false
     @State private var isTodayHeaderHovered = false
+    @State private var areStudyPlansExpanded = false
+    @State private var isStudyPlansHeaderHovered = false
+    @State private var hoveredStudyPlanID: String?
+    @State private var hoveredStudyQuestionID: String?
     @State private var areContestsExpanded = false
     @State private var isContestHeaderHovered = false
     @State private var areQuickLinksExpanded = false
@@ -215,6 +220,11 @@ struct DashboardView: View {
                     Divider()
                 }
 
+                if showStudyPlans {
+                    studyPlansSection
+                    Divider()
+                }
+
                 if showUpcomingContests {
                     VStack(alignment: .leading, spacing: 8) {
                         Button {
@@ -353,6 +363,161 @@ struct DashboardView: View {
             }
         }
         .padding(18)
+    }
+
+    private var visibleStudyPlans: [LiveStudyPlan]? {
+        guard let plans = account.snapshot?.studyPlans else { return nil }
+        return Array(plans.prefix(LiveStudyPlan.maximumCount))
+    }
+
+    private var studyPlansSummary: String {
+        if let plans = visibleStudyPlans { return "\(plans.count) active" }
+        return account.isWorking ? "Loading..." : "Unavailable"
+    }
+
+    private var studyPlansSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                areStudyPlansExpanded.toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    sectionHeading("Study Plans", symbol: "books.vertical")
+                        .fixedSize()
+                    Spacer(minLength: 8)
+                    Text(studyPlansSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Image(systemName: areStudyPlansExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12, height: 12)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 4)
+                .frame(minHeight: 24)
+                .contentShape(hoverShape)
+            }
+            .buttonStyle(.plain)
+            .background {
+                hoverShape.fill(isStudyPlansHeaderHovered ? Color.primary.opacity(0.07) : Color.clear)
+            }
+            .clipShape(hoverShape)
+            .contentShape(hoverShape)
+            .animation(.easeInOut(duration: 0.12), value: isStudyPlansHeaderHovered)
+            .onHover { isStudyPlansHeaderHovered = $0 }
+            .onDisappear { isStudyPlansHeaderHovered = false }
+            .help(areStudyPlansExpanded ? "Collapse study plans" : "Expand study plans")
+            .accessibilityLabel("Study Plans")
+            .accessibilityValue("\(studyPlansSummary), \(areStudyPlansExpanded ? "Expanded" : "Collapsed")")
+            .padding(.horizontal, -4)
+
+            if areStudyPlansExpanded {
+                if let plans = visibleStudyPlans {
+                    if plans.isEmpty {
+                        Text("No active study plans")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(plans) { plan in
+                                studyPlanRow(plan)
+                            }
+                        }
+                    }
+                } else {
+                    Text(account.isWorking ? "Loading study plans..." : "Study plans unavailable")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func studyPlanRow(_ studyPlan: LiveStudyPlan) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let url = studyPlan.url {
+                Link(destination: url) {
+                    HStack(spacing: 8) {
+                        Text(studyPlan.plan.name)
+                            .font(.headline)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("\(studyPlan.finishedQuestionNum) / \(studyPlan.plan.questionNum)")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 26)
+                    .contentShape(hoverShape)
+                }
+                .buttonStyle(.plain)
+                .background {
+                    hoverShape.fill(hoveredStudyPlanID == studyPlan.id ? Color.primary.opacity(0.07) : Color.clear)
+                }
+                .clipShape(hoverShape)
+                .contentShape(hoverShape)
+                .animation(.easeInOut(duration: 0.12), value: hoveredStudyPlanID == studyPlan.id)
+                .onHover { hoveredStudyPlanID = $0 ? studyPlan.id : nil }
+                .onDisappear {
+                    if hoveredStudyPlanID == studyPlan.id { hoveredStudyPlanID = nil }
+                }
+                .help("Open \(studyPlan.plan.name)")
+                .accessibilityLabel(
+                    "\(studyPlan.plan.name), \(studyPlan.finishedQuestionNum) of \(studyPlan.plan.questionNum) completed"
+                )
+                .padding(.horizontal, -4)
+            }
+
+            if let question = studyPlan.nextQuestionInfo?.nextQuestion, let url = question.url,
+                !question.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                Link(destination: url) {
+                    HStack(spacing: 6) {
+                        Text("Next Question:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                        Text(question.title)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 12, height: 12)
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 26)
+                    .contentShape(hoverShape)
+                }
+                .buttonStyle(.plain)
+                .background {
+                    hoverShape.fill(hoveredStudyQuestionID == studyPlan.id ? Color.primary.opacity(0.07) : Color.clear)
+                }
+                .clipShape(hoverShape)
+                .contentShape(hoverShape)
+                .animation(.easeInOut(duration: 0.12), value: hoveredStudyQuestionID == studyPlan.id)
+                .onHover { hoveredStudyQuestionID = $0 ? studyPlan.id : nil }
+                .onDisappear {
+                    if hoveredStudyQuestionID == studyPlan.id { hoveredStudyQuestionID = nil }
+                }
+                .help("Open \(question.title)")
+                .accessibilityLabel("Next question: \(question.title)")
+                .padding(.horizontal, -4)
+            } else {
+                Text("Next Question unavailable")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var quickLinksSection: some View {

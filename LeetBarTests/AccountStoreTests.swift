@@ -94,7 +94,7 @@ private struct TestLeetCodeService: LeetCodeServing {
     {
         guard username == "example" else { throw LeetCodeError.invalidResponse }
         return LiveDashboard(
-            daily: nil, stats: DailyStats(submissions: 0, problemsSolved: 0), contests: [], streak: nil,
+            daily: nil, stats: DailyStats(submissions: 0, problemsSolved: 0), contests: [], studyPlans: [], streak: nil,
             contestRating: .rated(1641.6), checkedAt: now,
             issues: [])
     }

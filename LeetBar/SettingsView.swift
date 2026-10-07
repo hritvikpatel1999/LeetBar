@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Binding var showQuickLinks: Bool
     @Binding var showUpcomingContests: Bool
     @Binding var showTodaySection: Bool
+    @Binding var showStudyPlans: Bool
     @ObservedObject var account: AccountStore
     @ObservedObject var quickLinks: QuickLinksStore
     @State private var sessionCookie = ""
@@ -20,6 +21,7 @@ struct SettingsView: View {
                 Toggle("Show Quick Links", isOn: $showQuickLinks)
                 Toggle("Show Upcoming Contests", isOn: $showUpcomingContests)
                 Toggle("Show Today section", isOn: $showTodaySection)
+                Toggle("Show Study Plans", isOn: $showStudyPlans)
             }
             Section("Quick Links") {
                 HStack {
