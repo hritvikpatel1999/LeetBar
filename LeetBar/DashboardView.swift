@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 
 struct DashboardView: View {
-    let scenario: SampleScenario
-    let useSampleData: Bool
     @ObservedObject var account: AccountStore
     @ObservedObject var quickLinks: QuickLinksStore
-    @State private var sampleDate = Date.now
+    let showQuickLinks: Bool
+    let showUpcomingContests: Bool
+    let showTodaySection: Bool
     @State private var isDailyRowHovered = false
     @State private var isTodayExpanded = false
     @State private var isTodayHeaderHovered = false
@@ -33,23 +33,16 @@ struct DashboardView: View {
         RoundedRectangle(cornerRadius: 6, style: .continuous)
     }
 
-    private var data: DashboardData {
-        DashboardData.sample(scenario: scenario, now: sampleDate)
-    }
-
     private var completion: Bool? {
-        if useSampleData {
-            return scenario == .unavailable ? nil : scenario == .completed
-        }
-        return account.snapshot?.daily?.isCompleted
+        account.snapshot?.daily?.isCompleted
     }
 
     private var dailyTitle: String {
-        useSampleData ? data.dailyTitle : account.snapshot?.daily?.question.title ?? "Unavailable"
+        account.snapshot?.daily?.question.title ?? "Unavailable"
     }
 
     private var dailyDifficulty: String {
-        useSampleData ? "Easy" : account.snapshot?.daily?.question.difficulty ?? "--"
+        account.snapshot?.daily?.question.difficulty ?? "--"
     }
 
     private var completionText: String {
@@ -57,11 +50,7 @@ struct DashboardView: View {
     }
 
     private var contestRatingText: String {
-        if useSampleData {
-            let rating: ContestRating? = scenario == .unavailable ? nil : .rated(1642)
-            return "Contest rating \(rating?.formatted() ?? "--") (sample)"
-        }
-        return "Contest rating \(account.snapshot?.contestRating?.formatted() ?? "--")"
+        "Contest rating \(account.snapshot?.contestRating?.formatted() ?? "--")"
     }
 
     var body: some View {
@@ -83,10 +72,7 @@ struct DashboardView: View {
         }
         .tint(.teal)
         .task {
-            if !useSampleData { account.refreshIfNeeded() }
-        }
-        .onChange(of: useSampleData) { _, isPreview in
-            if !isPreview { account.refreshIfNeeded() }
+            account.refreshIfNeeded()
         }
     }
 
@@ -100,9 +86,7 @@ struct DashboardView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Group {
-                        if useSampleData {
-                            Text("@sample-user")
-                        } else if let username = account.username {
+                        if let username = account.username {
                             Link(
                                 "@\(username)",
                                 destination: URL(string: "https://leetcode.com/u/")!
@@ -137,25 +121,19 @@ struct DashboardView: View {
 
             Divider()
 
-            if useSampleData || account.hasSavedSession {
+            if account.hasSavedSession {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         sectionHeading("Daily Problem", symbol: "calendar")
                         Spacer(minLength: 8)
-                        Group {
-                            if useSampleData {
-                                Text(sampleDate, format: .dateTime.month(.abbreviated).day())
-                            } else {
-                                Text(account.snapshot?.daily?.date ?? "--")
-                            }
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                        .fixedSize()
+                        Text(account.snapshot?.daily?.date ?? "--")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .fixedSize()
                     }
 
-                    if let url = useSampleData ? data.dailyURL : account.snapshot?.daily?.url {
+                    if let url = account.snapshot?.daily?.url {
                         Link(destination: url) {
                             dailyProblemRow
                                 .padding(.horizontal, 4)
@@ -176,18 +154,10 @@ struct DashboardView: View {
                         dailyProblemRow
                     }
 
-                    HStack {
-                        Text(
-                            "LeetCode streak: \((useSampleData ? scenario.sampleStreak : account.snapshot?.streak).map(String.init) ?? "--")"
-                        )
-                        if useSampleData {
-                            Spacer()
-                            Text("Best: \(scenario != .unavailable ? "19" : "--")")
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    if !useSampleData && account.snapshot?.streak == nil {
+                    Text("LeetCode streak: \(account.snapshot?.streak.map(String.init) ?? "--")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if account.snapshot?.streak == nil {
                         Text("Streak unavailable")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -196,146 +166,131 @@ struct DashboardView: View {
 
                 Divider()
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        isTodayExpanded.toggle()
-                    } label: {
-                        HStack(spacing: 8) {
-                            sectionHeading("Today", symbol: "chart.bar")
-                                .fixedSize()
-                            Spacer(minLength: 8)
-                            Text(todayCaption(asOf: now))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Image(systemName: isTodayExpanded ? "chevron.down" : "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 12, height: 12)
-                                .accessibilityHidden(true)
-                        }
-                        .padding(.horizontal, 4)
-                        .frame(minHeight: 24)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .background {
-                        hoverShape
-                            .fill(isTodayHeaderHovered ? Color.primary.opacity(0.07) : Color.clear)
-                    }
-                    .clipShape(hoverShape)
-                    .contentShape(hoverShape)
-                    .onHover { isTodayHeaderHovered = $0 }
-                    .onDisappear { isTodayHeaderHovered = false }
-                    .help(isTodayExpanded ? "Collapse today" : "Expand today")
-                    .accessibilityLabel("Today")
-                    .accessibilityValue("\(todayCaption(asOf: now)), \(isTodayExpanded ? "Expanded" : "Collapsed")")
-                    .padding(.horizontal, -4)
-
-                    if isTodayExpanded {
-                        VStack(spacing: 4) {
-                            metric("Submissions", value: stats(asOf: now)?.submissions)
-                            metric("Problems Solved", value: stats(asOf: now)?.problemsSolved)
-                        }
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        areContestsExpanded.toggle()
-                    } label: {
-                        HStack(spacing: 8) {
-                            sectionHeading("Upcoming Contests", symbol: "trophy")
-                                .fixedSize()
-                            Spacer(minLength: 8)
-                            Text(contestSummary(asOf: now))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                            Image(systemName: areContestsExpanded ? "chevron.down" : "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 12, height: 12)
-                                .accessibilityHidden(true)
-                        }
-                        .padding(.horizontal, 4)
-                        .frame(minHeight: 24)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .background {
-                        hoverShape
-                            .fill(isContestHeaderHovered ? Color.primary.opacity(0.07) : Color.clear)
-                    }
-                    .clipShape(hoverShape)
-                    .contentShape(hoverShape)
-                    .onHover { isContestHeaderHovered = $0 }
-                    .onDisappear { isContestHeaderHovered = false }
-                    .help(areContestsExpanded ? "Collapse contests" : "Expand contests")
-                    .accessibilityLabel("Upcoming Contests")
-                    .accessibilityValue(
-                        "\(contestSummary(asOf: now)), \(areContestsExpanded ? "Expanded" : "Collapsed")"
-                    )
-                    .padding(.horizontal, -4)
-
-                    if areContestsExpanded {
-                        if useSampleData {
-                            Text("Sample weekly contest")
-                                .font(.headline)
-                            Text(
-                                data.contestStart, format: .dateTime.weekday().month(.abbreviated).day().hour().minute()
-                            )
-                            .font(.subheadline)
-                            Group {
-                                if data.contestStart > now {
-                                    HStack(spacing: 4) {
-                                        Text("Starts in")
-                                        Text(data.contestStart, style: .relative)
-                                    }
-                                } else {
-                                    Text("Sample contest ended")
-                                }
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        } else if let contests = account.snapshot?.contests {
-                            let upcoming = contests.filter { $0.end > now }
-                            if upcoming.isEmpty {
-                                Text("No upcoming contests")
+                if showTodaySection {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button {
+                            isTodayExpanded.toggle()
+                        } label: {
+                            HStack(spacing: 8) {
+                                sectionHeading("Today", symbol: "chart.bar")
+                                    .fixedSize()
+                                Spacer(minLength: 8)
+                                Text(todayCaption(asOf: now))
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Image(systemName: isTodayExpanded ? "chevron.down" : "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 12, height: 12)
+                                    .accessibilityHidden(true)
                             }
-                            ForEach(upcoming) { contest in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Link(contest.title, destination: contest.url)
-                                        .font(.headline)
-                                    Text(
-                                        contest.start,
-                                        format: .dateTime.weekday().month(.abbreviated).day().hour().minute()
-                                    )
-                                    .font(.subheadline)
-                                    if contest.start > now {
-                                        HStack(spacing: 4) {
-                                            Text("Starts in")
-                                            Text(contest.start, style: .relative)
-                                        }
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("In progress").font(.caption).foregroundStyle(.green)
-                                    }
-                                }
+                            .padding(.horizontal, 4)
+                            .frame(minHeight: 24)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background {
+                            hoverShape
+                                .fill(isTodayHeaderHovered ? Color.primary.opacity(0.07) : Color.clear)
+                        }
+                        .clipShape(hoverShape)
+                        .contentShape(hoverShape)
+                        .onHover { isTodayHeaderHovered = $0 }
+                        .onDisappear { isTodayHeaderHovered = false }
+                        .help(isTodayExpanded ? "Collapse today" : "Expand today")
+                        .accessibilityLabel("Today")
+                        .accessibilityValue("\(todayCaption(asOf: now)), \(isTodayExpanded ? "Expanded" : "Collapsed")")
+                        .padding(.horizontal, -4)
+
+                        if isTodayExpanded {
+                            VStack(spacing: 4) {
+                                metric("Submissions", value: stats(asOf: now)?.submissions)
+                                metric("Problems Solved", value: stats(asOf: now)?.problemsSolved)
                             }
-                        } else {
-                            Text("Contests unavailable").foregroundStyle(.secondary)
                         }
                     }
+
+                    Divider()
                 }
 
-                Divider()
+                if showUpcomingContests {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button {
+                            areContestsExpanded.toggle()
+                        } label: {
+                            HStack(spacing: 8) {
+                                sectionHeading("Upcoming Contests", symbol: "trophy")
+                                    .fixedSize()
+                                Spacer(minLength: 8)
+                                Text(contestSummary(asOf: now))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                Image(systemName: areContestsExpanded ? "chevron.down" : "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 12, height: 12)
+                                    .accessibilityHidden(true)
+                            }
+                            .padding(.horizontal, 4)
+                            .frame(minHeight: 24)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background {
+                            hoverShape
+                                .fill(isContestHeaderHovered ? Color.primary.opacity(0.07) : Color.clear)
+                        }
+                        .clipShape(hoverShape)
+                        .contentShape(hoverShape)
+                        .onHover { isContestHeaderHovered = $0 }
+                        .onDisappear { isContestHeaderHovered = false }
+                        .help(areContestsExpanded ? "Collapse contests" : "Expand contests")
+                        .accessibilityLabel("Upcoming Contests")
+                        .accessibilityValue(
+                            "\(contestSummary(asOf: now)), \(areContestsExpanded ? "Expanded" : "Collapsed")"
+                        )
+                        .padding(.horizontal, -4)
+
+                        if areContestsExpanded {
+                            if let contests = account.snapshot?.contests {
+                                let upcoming = contests.filter { $0.end > now }
+                                if upcoming.isEmpty {
+                                    Text("No upcoming contests")
+                                        .foregroundStyle(.secondary)
+                                }
+                                ForEach(upcoming) { contest in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Link(contest.title, destination: contest.url)
+                                            .font(.headline)
+                                        Text(
+                                            contest.start,
+                                            format: .dateTime.weekday().month(.abbreviated).day().hour().minute()
+                                        )
+                                        .font(.subheadline)
+                                        if contest.start > now {
+                                            HStack(spacing: 4) {
+                                                Text("Starts in")
+                                                Text(contest.start, style: .relative)
+                                            }
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        } else {
+                                            Text("In progress").font(.caption).foregroundStyle(.green)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("Contests unavailable").foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    Divider()
+                }
             } else {
                 SettingsLink {
                     Label("Connect LeetCode", systemImage: "key")
@@ -345,23 +300,21 @@ struct DashboardView: View {
                 Divider()
             }
 
-            quickLinksSection
-            Divider()
+            if showQuickLinks {
+                quickLinksSection
+                Divider()
+            }
 
-            if !useSampleData {
-                if let message = account.message {
-                    Text(message).font(.caption).foregroundStyle(.orange)
-                }
-                ForEach(account.snapshot?.issues ?? [], id: \.self) { issue in
-                    Text(issue).font(.caption).foregroundStyle(.orange)
-                }
+            if let message = account.message {
+                Text(message).font(.caption).foregroundStyle(.orange)
+            }
+            ForEach(account.snapshot?.issues ?? [], id: \.self) { issue in
+                Text(issue).font(.caption).foregroundStyle(.orange)
             }
 
             HStack {
                 Group {
-                    if useSampleData {
-                        Text("Local preview")
-                    } else if let checked = account.snapshot?.checkedAt {
+                    if let checked = account.snapshot?.checkedAt {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Last checked")
                             Text(checked, format: .dateTime.month(.abbreviated).day().hour().minute())
@@ -373,7 +326,7 @@ struct DashboardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 Spacer()
-                if !useSampleData, account.hasSavedSession {
+                if account.hasSavedSession {
                     Button {
                         account.refresh()
                     } label: {
@@ -518,11 +471,6 @@ struct DashboardView: View {
     }
 
     private func contestSummary(asOf now: Date) -> String {
-        if useSampleData {
-            return data.contestStart > now
-                ? ContestDayLabel.text(for: data.contestStart, relativeTo: now)
-                : "None scheduled"
-        }
         guard let contests = account.snapshot?.contests else {
             return account.isWorking ? "Loading..." : "Unavailable"
         }
@@ -533,7 +481,7 @@ struct DashboardView: View {
     }
 
     private func todayCaption(asOf now: Date) -> String {
-        let date = (useSampleData ? sampleDate : now).formatted(.dateTime.month(.abbreviated).day())
+        let date = now.formatted(.dateTime.month(.abbreviated).day())
         let timeZone = TimeZone.current.identifier
             .replacingOccurrences(of: "_", with: " ")
             .replacingOccurrences(of: "/", with: " / ")
@@ -541,7 +489,6 @@ struct DashboardView: View {
     }
 
     private func stats(asOf now: Date) -> DailyStats? {
-        if useSampleData { return data.stats }
         guard let snapshot = account.snapshot,
             Calendar.current.isDate(snapshot.checkedAt, inSameDayAs: now)
         else { return nil }
@@ -572,8 +519,4 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
     }
-}
-
-#Preview {
-    DashboardView(scenario: .pending, useSampleData: true, account: AccountStore(), quickLinks: QuickLinksStore())
 }

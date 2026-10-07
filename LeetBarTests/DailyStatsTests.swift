@@ -99,18 +99,4 @@ final class DailyStatsTests: XCTestCase {
         )
     }
 
-    func testUnknownSampleDoesNotPretendToHaveZeroActivity() {
-        XCTAssertNil(DashboardData.sample(scenario: .unavailable, now: today).stats)
-        XCTAssertNil(SampleScenario.unavailable.sampleStreak)
-    }
-
-    func testCompletingSampleDailyAddsOneAttemptAndOneProblem() {
-        let pending = DashboardData.sample(scenario: .pending, now: today)
-        let completed = DashboardData.sample(scenario: .completed, now: today)
-
-        XCTAssertEqual(pending.stats, DailyStats(submissions: 7, problemsSolved: 3))
-        XCTAssertEqual(completed.stats, DailyStats(submissions: 8, problemsSolved: 4))
-        XCTAssertEqual(SampleScenario.pending.sampleStreak, 7)
-        XCTAssertEqual(SampleScenario.completed.sampleStreak, 8)
-    }
 }

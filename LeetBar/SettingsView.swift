@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Binding var scenario: SampleScenario
     @Binding var showStreak: Bool
-    @Binding var useSampleData: Bool
+    @Binding var showQuickLinks: Bool
+    @Binding var showUpcomingContests: Bool
+    @Binding var showTodaySection: Bool
     @ObservedObject var account: AccountStore
     @ObservedObject var quickLinks: QuickLinksStore
     @State private var sessionCookie = ""
@@ -15,6 +16,11 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Sections") {
+                Toggle("Show Quick Links", isOn: $showQuickLinks)
+                Toggle("Show Upcoming Contests", isOn: $showUpcomingContests)
+                Toggle("Show Today section", isOn: $showTodaySection)
+            }
             Section("Quick Links") {
                 HStack {
                     Text("\(quickLinks.links.count) of \(QuickLinksStore.maximumCount)")
@@ -102,7 +108,6 @@ struct SettingsView: View {
                             sessionCookie = ""
                             csrfToken = ""
                             validationMessage = nil
-                            useSampleData = false
                             account.connect(candidate)
                         } catch {
                             sessionCookie = ""
@@ -131,19 +136,6 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Section("Data") {
-                Picker("Data source", selection: $useSampleData) {
-                    Text("LeetCode account").tag(false)
-                    Text("Local sample data").tag(true)
-                }
-                if useSampleData {
-                    Picker("Sample state", selection: $scenario) {
-                        ForEach(SampleScenario.allCases) { scenario in
-                            Text(scenario.title).tag(scenario)
-                        }
-                    }
                 }
             }
             Section("Menu Bar") {

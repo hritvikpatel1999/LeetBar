@@ -4,6 +4,10 @@
 
 LeetBar puts your LeetCode daily challenge, streak, contest rating, practice totals, and upcoming contests in the macOS menu bar. Keep up to four personal practice links one click away in its expandable Quick Links section.
 
+Choose what you see in **Settings > Sections**: show or hide **Quick Links**, **Upcoming Contests**, and **Today** independently. All three are shown by default, and your choices are saved automatically. Hiding a section does not delete your saved links or disconnect your account.
+
+In **Settings > Menu Bar**, you can also show or hide the streak count beside the menu-bar icon.
+
 LeetBar is an unofficial companion, not affiliated with LeetCode. The LeetCode name and logo belong to LeetCode.
 
 ## Download This If You
@@ -50,7 +54,7 @@ This is a manual browser-session connection, not automatic Google OAuth. LeetBar
 3. Quit any already-running copy of LeetBar using the power button in its dropdown.
 4. Press **Command-R** to build and run.
 5. Look for the LeetCode logo in your **menu bar**. LeetBar intentionally has no Dock icon or main window.
-6. Open Settings to connect your account and configure up to four **Quick Links**.
+6. Open Settings to connect your account, configure up to four **Quick Links**, and choose which sections you want to see.
 
 Press **Command-U** to run the tests, or **Command-Period** to stop an Xcode-launched app.
 

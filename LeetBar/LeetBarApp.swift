@@ -3,29 +3,33 @@ import SwiftUI
 
 @main
 struct LeetBarApp: App {
-    @AppStorage("sampleScenario") private var scenario: SampleScenario = .pending
     @AppStorage("showStreakInMenuBar") private var showStreak = true
-    @AppStorage("useSampleData") private var useSampleData = false
+    @AppStorage("showQuickLinks") private var showQuickLinks = true
+    @AppStorage("showUpcomingContests") private var showUpcomingContests = true
+    @AppStorage("showTodaySection") private var showTodaySection = true
     @StateObject private var account = AccountStore()
     @StateObject private var quickLinks = QuickLinksStore()
 
     var body: some Scene {
         MenuBarExtra {
-            DashboardView(scenario: scenario, useSampleData: useSampleData, account: account, quickLinks: quickLinks)
+            DashboardView(
+                account: account, quickLinks: quickLinks, showQuickLinks: showQuickLinks,
+                showUpcomingContests: showUpcomingContests, showTodaySection: showTodaySection
+            )
         } label: {
             Image("LeetCodeMenuBar")
                 .renderingMode(.template)
                 .accessibilityLabel("LeetBar")
             if showStreak {
-                Text((useSampleData ? scenario.sampleStreak : account.snapshot?.streak).map(String.init) ?? "--")
+                Text(account.snapshot?.streak.map(String.init) ?? "--")
             }
         }
         .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView(
-                scenario: $scenario, showStreak: $showStreak, useSampleData: $useSampleData, account: account,
-                quickLinks: quickLinks
+                showStreak: $showStreak, showQuickLinks: $showQuickLinks, showUpcomingContests: $showUpcomingContests,
+                showTodaySection: $showTodaySection, account: account, quickLinks: quickLinks
             )
             .onAppear {
                 NSApplication.shared.activate(ignoringOtherApps: true)
