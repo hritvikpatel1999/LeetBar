@@ -4,9 +4,9 @@ LeetBar puts your LeetCode daily challenge, streak, contest rating, practice tot
 
 ## I don't have Xcode, and I just want to use it!
 
-**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.2/LeetBar-0.1.0-preview.2-macos-arm64.zip)**
+**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.3/LeetBar-0.1.0-preview.3-macos-universal.zip)**
 
-For **Apple silicon Macs (M1 or later)** running **macOS 14 or later**. This is **Preview 2**, including Study Plans. This download does not support Intel Macs.
+For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Preview 3**, with Launch at login, performance improvements, and a Universal app containing both architectures.
 
 **No Xcode, Terminal, or GitHub account needed to install.**
 
@@ -16,7 +16,7 @@ For **Apple silicon Macs (M1 or later)** running **macOS 14 or later**. This is 
 
 **If macOS blocks the first launch:** this preview is not Apple-notarized. After attempting to open it, go to **System Settings > Privacy & Security > Open Anyway**, then confirm. Proceed only if you trust this download. Managed Macs may prohibit this approval; do not disable macOS security protections.
 
-Next, [connect your LeetCode account](#connect-your-account). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.2#security-and-known-limitations) before connecting.
+Next, [connect your LeetCode account](#connect-your-account). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.3#security-and-known-limitations) before connecting.
 
 ## LeetBar Overview
 
@@ -25,6 +25,23 @@ Choose what you see in **Settings > Sections**: show or hide **Quick Links**, **
 The **Study Plans** section appears after **Today**, starts collapsed, and shows up to three active plans from your connected LeetCode account. Expand it to see each plan's name, completed/total question counts, and a **Next Question** link when available. Progress is shown as counts, not percentages. Click a plan name to open it on LeetCode. Use **Show Study Plans** in Settings to hide or restore the section.
 
 In **Settings > Menu Bar**, you can also show or hide the streak count beside the menu-bar icon.
+
+### Launch at login
+
+To start LeetBar automatically when you sign in to your Mac, open **Settings > General**
+and enable **Launch at login**. This is opt-in: LeetBar never registers itself automatically.
+It starts quietly in the menu bar, without a Dock icon or a Settings window.
+
+Enable this from your installed copy in **Applications**, not a temporary Xcode build.
+The toggle reads macOS's actual login-item registration rather than a saved app preference.
+If macOS requires approval, the toggle remains on to indicate registration is requested,
+but LeetBar will not launch automatically until you approve it. Use **Open Login Items in
+System Settings** to review its permission. Registration failures appear in Settings.
+
+Turn the toggle off to unregister automatic startup; this does not quit LeetBar or disconnect
+your account. You can also manage it in **System Settings > General > Login Items**
+(called **Login Items & Extensions** on some macOS versions). Returning to LeetBar refreshes
+the displayed status. This starts the app at user login, not before anyone signs in.
 
 ### Network usage and refresh
 
@@ -101,13 +118,13 @@ LeetBar's original source code and documentation are licensed under the [MIT Lic
 
 ### To use the downloaded app
 
-- **Apple silicon Mac (M1 or later)** with **macOS 14 or later**. The download does not support Intel Macs.
+- **Apple silicon or Intel Mac** with **macOS 14 or later**. The same Universal download supports both.
 - **Internet access and a LeetCode account** for live statistics. Quick Links work without a connected account.
 - **Chrome** for the account-connection instructions below. Other browsers have different developer-tool menus.
 
 ### Only if building from source
 
-- **Xcode with Swift 6 support.** Tested with Xcode 26.5. Install full Xcode, not just the standalone Command Line Tools. Intel source-build compatibility has not been verified.
+- **Xcode with Swift 6 support.** Tested with Xcode 26.5. Install full Xcode, not just the standalone Command Line Tools.
 - **XcodeGen 2.45 or later**, only if regenerating the project. It is not required to open or build the included Xcode project.
 
 No paid Apple developer account is needed to build or run locally.
@@ -155,6 +172,24 @@ Quit an existing copy before launching a rebuilt app. Run the tests with:
 ```sh
 xcodebuild -project LeetBar.xcodeproj -scheme LeetBar -destination 'platform=macOS' -derivedDataPath .build test
 ```
+
+### Build a Universal release
+
+The Release configuration builds both `arm64` (Apple silicon) and `x86_64` (Intel),
+even when building on an Apple silicon Mac:
+
+```sh
+xcodebuild -project LeetBar.xcodeproj -scheme LeetBar -configuration Release \
+  -destination 'generic/platform=macOS' -derivedDataPath .build/universal build
+lipo -archs .build/universal/Build/Products/Release/LeetBar.app/Contents/MacOS/LeetBar
+codesign --verify --deep --strict .build/universal/Build/Products/Release/LeetBar.app
+```
+
+The architecture check should print `x86_64 arm64` (order may differ). The project
+uses ad-hoc signing for local builds; this is not Developer ID signing or Apple
+notarization. Release builds exclude the debugger entitlement. Rosetta tests on
+Apple silicon can exercise the Intel build but do not replace physical Intel
+hardware testing or testing every supported macOS version.
 
 The included Xcode project is ready to build. If you change [project.yml](project.yml) or add/remove source files outside Xcode, regenerate it using [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 

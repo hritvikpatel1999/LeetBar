@@ -10,6 +10,7 @@ struct LeetBarApp: App {
     @AppStorage("showStudyPlans") private var showStudyPlans = true
     @StateObject private var account: AccountStore
     @StateObject private var quickLinks = QuickLinksStore()
+    @StateObject private var launchAtLogin = LaunchAtLoginStore()
 
     init() {
         let defaults = UserDefaults.standard
@@ -46,7 +47,7 @@ struct LeetBarApp: App {
             SettingsView(
                 showStreak: $showStreak, showQuickLinks: $showQuickLinks, showUpcomingContests: $showUpcomingContests,
                 showTodaySection: $showTodaySection, showStudyPlans: $showStudyPlans, account: account,
-                quickLinks: quickLinks
+                quickLinks: quickLinks, launchAtLogin: launchAtLogin
             )
             .onAppear {
                 NSApplication.shared.activate(ignoringOtherApps: true)

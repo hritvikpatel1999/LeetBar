@@ -7,17 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AB3EF53A02F0F68E357C85F /* LaunchAtLoginStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDB9090E68D7E272855675F /* LaunchAtLoginStore.swift */; };
 		15AF72FB94835605F7BA79A2 /* AccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3829262133E659927AAEAE /* AccountStore.swift */; };
 		1FB5F1BFD8BEC942DC3EBCAC /* LeetCodeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB3746516491D6529154CF3 /* LeetCodeClient.swift */; };
 		2B0984571C527022DCA3BEF7 /* LeetBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB17344C24263B8ADD672D87 /* LeetBarApp.swift */; };
 		5BE80A263F0117E19AA163A4 /* DashboardData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F126745C4723DC016B8DAB49 /* DashboardData.swift */; };
 		5FEFFDD45C5B50CBF3308DB0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 785500EF689F43352276A177 /* SettingsView.swift */; };
+		7A703538CCFAD1DA95205BD7 /* LaunchAtLoginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52CFB1979BE8745A5B3212DE /* LaunchAtLoginTests.swift */; };
 		7FDA9F3FD965A024D7CAAB1F /* QuickLinksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE0DE3568A68E78D6B926A3 /* QuickLinksStore.swift */; };
 		91E92FD51CD18FA2B64B6B71 /* QuickLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D65E413481B84788661D99 /* QuickLinksTests.swift */; };
 		BD9FD1FDB642C2F90327354B /* DailyStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7999EF1F5460BD9EBD24D1 /* DailyStatsTests.swift */; };
 		C0E0A8C2C72A9860DABB04BF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9CEF88705237768FF2BBBA6E /* Assets.xcassets */; };
 		C7DE3F00357B0309A69B5387 /* DashboardData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F126745C4723DC016B8DAB49 /* DashboardData.swift */; };
 		D3C02C93962BE10B5DF68226 /* LeetCodeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404FFC6C11E094419D240F44 /* LeetCodeSession.swift */; };
+		D4DE8734B724378C90BFCA9B /* LaunchAtLoginStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDB9090E68D7E272855675F /* LaunchAtLoginStore.swift */; };
 		D5309748AD5C90044E204B8F /* QuickLinksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE0DE3568A68E78D6B926A3 /* QuickLinksStore.swift */; };
 		D775F6EE9D23AAD2F45D3CDB /* LeetCodeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404FFC6C11E094419D240F44 /* LeetCodeSession.swift */; };
 		E0ECDF631EDDFC3E6F146757 /* AccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3829262133E659927AAEAE /* AccountStore.swift */; };
@@ -34,6 +37,7 @@
 		21CAD745C9823265E052D2B0 /* LeetBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LeetBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		267AA50F843D9C1E702230D5 /* LeetCodeClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeetCodeClientTests.swift; sourceTree = "<group>"; };
 		404FFC6C11E094419D240F44 /* LeetCodeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeetCodeSession.swift; sourceTree = "<group>"; };
+		52CFB1979BE8745A5B3212DE /* LaunchAtLoginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginTests.swift; sourceTree = "<group>"; };
 		6F365A6695F45954CF6D8619 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		785500EF689F43352276A177 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		857558C95B0BFF7E8B21876A /* LeetBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LeetBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -45,6 +49,7 @@
 		DB17344C24263B8ADD672D87 /* LeetBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeetBarApp.swift; sourceTree = "<group>"; };
 		F126745C4723DC016B8DAB49 /* DashboardData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardData.swift; sourceTree = "<group>"; };
 		F2D65E413481B84788661D99 /* QuickLinksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLinksTests.swift; sourceTree = "<group>"; };
+		FDDB9090E68D7E272855675F /* LaunchAtLoginStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -66,6 +71,7 @@
 				9CEF88705237768FF2BBBA6E /* Assets.xcassets */,
 				F126745C4723DC016B8DAB49 /* DashboardData.swift */,
 				6F365A6695F45954CF6D8619 /* DashboardView.swift */,
+				FDDB9090E68D7E272855675F /* LaunchAtLoginStore.swift */,
 				DB17344C24263B8ADD672D87 /* LeetBarApp.swift */,
 				0AB3746516491D6529154CF3 /* LeetCodeClient.swift */,
 				404FFC6C11E094419D240F44 /* LeetCodeSession.swift */,
@@ -89,6 +95,7 @@
 			children = (
 				98100BA1CEDDBD79DA3A7B2D /* AccountStoreTests.swift */,
 				DA7999EF1F5460BD9EBD24D1 /* DailyStatsTests.swift */,
+				52CFB1979BE8745A5B3212DE /* LaunchAtLoginTests.swift */,
 				267AA50F843D9C1E702230D5 /* LeetCodeClientTests.swift */,
 				F2D65E413481B84788661D99 /* QuickLinksTests.swift */,
 			);
@@ -189,6 +196,7 @@
 				15AF72FB94835605F7BA79A2 /* AccountStore.swift in Sources */,
 				5BE80A263F0117E19AA163A4 /* DashboardData.swift in Sources */,
 				F1FDDF481C3FE50813DA5FD9 /* DashboardView.swift in Sources */,
+				0AB3EF53A02F0F68E357C85F /* LaunchAtLoginStore.swift in Sources */,
 				2B0984571C527022DCA3BEF7 /* LeetBarApp.swift in Sources */,
 				E782144E8C155EE14A8D5550 /* LeetCodeClient.swift in Sources */,
 				D3C02C93962BE10B5DF68226 /* LeetCodeSession.swift in Sources */,
@@ -205,6 +213,8 @@
 				F784722D31D53530B41CECB9 /* AccountStoreTests.swift in Sources */,
 				BD9FD1FDB642C2F90327354B /* DailyStatsTests.swift in Sources */,
 				C7DE3F00357B0309A69B5387 /* DashboardData.swift in Sources */,
+				D4DE8734B724378C90BFCA9B /* LaunchAtLoginStore.swift in Sources */,
+				7A703538CCFAD1DA95205BD7 /* LaunchAtLoginTests.swift in Sources */,
 				1FB5F1BFD8BEC942DC3EBCAC /* LeetCodeClient.swift in Sources */,
 				F06334B86CA8DF90F5D1B285 /* LeetCodeClientTests.swift in Sources */,
 				D775F6EE9D23AAD2F45D3CDB /* LeetCodeSession.swift in Sources */,
@@ -270,7 +280,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -313,7 +323,9 @@
 		8654BB448F6DC00E19613BFB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "arm64 x86_64";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -323,6 +335,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.leetbar.app;
 				SDKROOT = macosx;
 			};
@@ -364,7 +377,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

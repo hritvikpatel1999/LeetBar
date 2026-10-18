@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -8,6 +9,7 @@ struct SettingsView: View {
     @Binding var showStudyPlans: Bool
     @ObservedObject var account: AccountStore
     @ObservedObject var quickLinks: QuickLinksStore
+    @ObservedObject var launchAtLogin: LaunchAtLoginStore
     @State private var sessionCookie = ""
     @State private var csrfToken = ""
     @State private var validationMessage: String?
@@ -17,6 +19,36 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { launchAtLogin.isOn },
+                    set: { enabled in
+                        Task { await launchAtLogin.setEnabled(enabled) }
+                    }
+                ))
+                .disabled(!launchAtLogin.canToggle)
+                .help("Start LeetBar automatically in the menu bar when you sign in to your Mac.")
+                Text(launchAtLogin.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if launchAtLogin.isWorking {
+                    ProgressView().controlSize(.small)
+                }
+                if let error = launchAtLogin.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Open Login Items in System Settings") {
+                    launchAtLogin.openSystemSettings()
+                }
+                Text("Enable this from your installed copy in Applications, not a temporary development build.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Section("Sections") {
                 Toggle("Show Quick Links", isOn: $showQuickLinks)
                 Toggle("Show Upcoming Contests", isOn: $showUpcomingContests)
@@ -155,7 +187,13 @@ struct SettingsView: View {
         } message: {
             Text("The saved quick-link data will be removed. Your LeetCode connection will not change.")
         }
-        .task { account.restore() }
+        .task {
+            account.restore()
+            launchAtLogin.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            launchAtLogin.refresh()
+        }
         .onDisappear {
             sessionCookie = ""
             csrfToken = ""
