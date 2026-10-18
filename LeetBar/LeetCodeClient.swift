@@ -94,6 +94,19 @@ struct LiveDailyChallenge: Decodable, Sendable {
         }
     }
 
+    var dayInterval: DateInterval? {
+        let formatter = DateFormatter()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.isLenient = false
+        guard let start = formatter.date(from: date), formatter.string(from: start) == date else { return nil }
+        return calendar.dateInterval(of: .day, for: start)
+    }
+
     var url: URL? {
         guard let url = URL(string: link, relativeTo: URL(string: "https://leetcode.com"))?.absoluteURL,
             url.scheme == "https", url.host == "leetcode.com",
@@ -153,6 +166,33 @@ struct LiveStudyPlan: Decodable, Sendable, Identifiable {
     }
 }
 
+enum DashboardSection: CaseIterable, Sendable {
+    case daily, today, contests, studyPlans, streak, rating
+
+    var refreshInterval: TimeInterval {
+        switch self {
+        case .daily, .today, .streak: 60
+        case .studyPlans: 300
+        case .contests, .rating: 3600
+        }
+    }
+}
+
+struct DashboardPreferences: Equatable {
+    var showToday = true
+    var showContests = true
+    var showStudyPlans = true
+
+    var sections: Set<DashboardSection> {
+        // Daily, streak, and rating are always displayed in the dashboard.
+        var result: Set<DashboardSection> = [.daily, .streak, .rating]
+        if showToday { result.insert(.today) }
+        if showContests { result.insert(.contests) }
+        if showStudyPlans { result.insert(.studyPlans) }
+        return result
+    }
+}
+
 struct LiveDashboard: Sendable {
     let daily: LiveDailyChallenge?
     let stats: DailyStats?
@@ -161,12 +201,39 @@ struct LiveDashboard: Sendable {
     let streak: Int?
     let contestRating: ContestRating?
     let checkedAt: Date
-    let issues: [String]
+    let sectionIssues: [DashboardSection: String]
+    var statsCheckedAt: Date? = nil
+
+    var issues: [String] {
+        DashboardSection.allCases.compactMap { sectionIssues[$0] }
+    }
+
+    func merging(_ result: LiveDashboard, sections: Set<DashboardSection>) -> LiveDashboard {
+        var errors = sectionIssues
+        for section in sections { errors[section] = result.sectionIssues[section] }
+        return LiveDashboard(
+            daily: sections.contains(.daily) ? result.daily : daily,
+            stats: sections.contains(.today) ? result.stats : stats,
+            contests: sections.contains(.contests) ? result.contests : contests,
+            studyPlans: sections.contains(.studyPlans) ? result.studyPlans : studyPlans,
+            streak: sections.contains(.streak) ? result.streak : streak,
+            contestRating: sections.contains(.rating) ? result.contestRating : contestRating,
+            checkedAt: result.checkedAt, sectionIssues: errors,
+            statsCheckedAt: sections.contains(.today) ? result.statsCheckedAt : statsCheckedAt)
+    }
+
+    func stats(asOf date: Date, calendar: Calendar = .current) -> DailyStats? {
+        guard let statsCheckedAt, calendar.isDate(statsCheckedAt, inSameDayAs: date) else { return nil }
+        return stats
+    }
 }
 
 protocol LeetCodeServing: Sendable {
     func account(session: LeetCodeSession) async throws -> LeetCodeAccount
-    func dashboard(session: LeetCodeSession, username: String, now: Date, calendar: Calendar) async throws
+    func dashboard(
+        session: LeetCodeSession, username: String, now: Date, calendar: Calendar,
+        sections: Set<DashboardSection>
+    ) async throws
         -> LiveDashboard
 }
 
@@ -246,10 +313,13 @@ struct LeetCodeClient: LeetCodeServing {
         return plans
     }
 
-    func dashboard(session: LeetCodeSession, username: String, now: Date, calendar: Calendar) async throws
+    func dashboard(
+        session: LeetCodeSession, username: String, now: Date, calendar: Calendar,
+        sections: Set<DashboardSection> = Set(DashboardSection.allCases)
+    ) async throws
         -> LiveDashboard
     {
-        var issues: [String] = []
+        var issues: [DashboardSection: String] = [:]
         var daily: LiveDailyChallenge?
         var stats: DailyStats?
         var contests: [LiveContest]?
@@ -257,75 +327,111 @@ struct LeetCodeClient: LeetCodeServing {
         var streak: Int?
         var rating: ContestRating?
 
-        do {
-            struct Payload: Decodable { let activeDailyCodingChallengeQuestion: LiveDailyChallenge? }
-            let payload: Payload = try await query(
-                """
-                query LeetBarDaily {
-                    activeDailyCodingChallengeQuestion {
-                        date userStatus link question { title titleSlug difficulty }
+        if sections.contains(.daily) {
+            do {
+                struct Payload: Decodable { let activeDailyCodingChallengeQuestion: LiveDailyChallenge? }
+                let payload: Payload = try await query(
+                    """
+                    query LeetBarDaily {
+                        activeDailyCodingChallengeQuestion {
+                            date userStatus link question { title titleSlug difficulty }
+                        }
                     }
+                    """, session: session)
+                guard let challenge = payload.activeDailyCodingChallengeQuestion else {
+                    throw LeetCodeError.invalidResponse
                 }
-                """, session: session)
-            guard let challenge = payload.activeDailyCodingChallengeQuestion else {
-                throw LeetCodeError.invalidResponse
+                daily = challenge
+            } catch {
+                if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
+                    || error is CancellationError
+                {
+                    throw error
+                }
+                issues[.daily] = "Daily problem: \(Self.message(for: error))"
             }
-            daily = challenge
-        } catch {
-            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
-            issues.append("Daily problem: \(Self.message(for: error))")
         }
 
-        do {
-            stats = try await todayStats(session: session, now: now, calendar: calendar)
-        } catch {
-            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
-            issues.append("Today: \(Self.message(for: error))")
-        }
-
-        do {
-            struct Payload: Decodable { let topTwoContests: [LiveContest] }
-            let payload: Payload = try await query(
-                """
-                query LeetBarContests { topTwoContests { title titleSlug startTime duration } }
-                """, session: session)
-            contests = payload.topTwoContests.filter { $0.end > now }.sorted { $0.start < $1.start }
-        } catch {
-            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
-            issues.append("Contests: \(Self.message(for: error))")
-        }
-
-        do {
-            plans = try await studyPlans(session: session)
-        } catch {
-            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
-            issues.append("Study plans: \(Self.message(for: error))")
-        }
-
-        do {
-            struct Counter: Decodable { let streakCount: Int }
-            struct Payload: Decodable { let streakCounter: Counter? }
-            let payload: Payload = try await query(
-                "query LeetBarStreak { streakCounter { streakCount } }", session: session)
-            guard let counter = payload.streakCounter, counter.streakCount >= 0 else {
-                throw LeetCodeError.invalidResponse
+        if sections.contains(.today) {
+            do {
+                stats = try await todayStats(session: session, now: now, calendar: calendar)
+            } catch {
+                if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
+                    || error is CancellationError
+                {
+                    throw error
+                }
+                issues[.today] = "Today: \(Self.message(for: error))"
             }
-            streak = counter.streakCount
-        } catch {
-            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
-            issues.append("Streak: \(Self.message(for: error))")
         }
 
-        do {
-            rating = try await contestRating(username: username, session: session)
-        } catch {
-            if error as? LeetCodeError == .signedOut || error is CancellationError { throw error }
-            issues.append("Contest rating: \(Self.message(for: error))")
+        if sections.contains(.contests) {
+            do {
+                struct Payload: Decodable { let topTwoContests: [LiveContest] }
+                let payload: Payload = try await query(
+                    """
+                    query LeetBarContests { topTwoContests { title titleSlug startTime duration } }
+                    """, session: session)
+                contests = payload.topTwoContests.filter { $0.end > now }.sorted { $0.start < $1.start }
+            } catch {
+                if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
+                    || error is CancellationError
+                {
+                    throw error
+                }
+                issues[.contests] = "Contests: \(Self.message(for: error))"
+            }
+        }
+
+        if sections.contains(.studyPlans) {
+            do {
+                plans = try await studyPlans(session: session)
+            } catch {
+                if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
+                    || error is CancellationError
+                {
+                    throw error
+                }
+                issues[.studyPlans] = "Study plans: \(Self.message(for: error))"
+            }
+        }
+
+        if sections.contains(.streak) {
+            do {
+                struct Counter: Decodable { let streakCount: Int }
+                struct Payload: Decodable { let streakCounter: Counter? }
+                let payload: Payload = try await query(
+                    "query LeetBarStreak { streakCounter { streakCount } }", session: session)
+                guard let counter = payload.streakCounter, counter.streakCount >= 0 else {
+                    throw LeetCodeError.invalidResponse
+                }
+                streak = counter.streakCount
+            } catch {
+                if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
+                    || error is CancellationError
+                {
+                    throw error
+                }
+                issues[.streak] = "Streak: \(Self.message(for: error))"
+            }
+        }
+
+        if sections.contains(.rating) {
+            do {
+                rating = try await contestRating(username: username, session: session)
+            } catch {
+                if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
+                    || error is CancellationError
+                {
+                    throw error
+                }
+                issues[.rating] = "Contest rating: \(Self.message(for: error))"
+            }
         }
 
         return LiveDashboard(
             daily: daily, stats: stats, contests: contests, studyPlans: plans, streak: streak, contestRating: rating,
-            checkedAt: now, issues: issues)
+            checkedAt: now, sectionIssues: issues, statsCheckedAt: stats == nil ? nil : now)
     }
 
     func todayStats(session: LeetCodeSession, now: Date, calendar: Calendar) async throws -> DailyStats {
