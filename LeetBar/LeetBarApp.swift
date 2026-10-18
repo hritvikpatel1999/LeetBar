@@ -8,8 +8,21 @@ struct LeetBarApp: App {
     @AppStorage("showUpcomingContests") private var showUpcomingContests = true
     @AppStorage("showTodaySection") private var showTodaySection = true
     @AppStorage("showStudyPlans") private var showStudyPlans = true
-    @StateObject private var account = AccountStore()
+    @StateObject private var account: AccountStore
     @StateObject private var quickLinks = QuickLinksStore()
+
+    init() {
+        let defaults = UserDefaults.standard
+        _account = StateObject(wrappedValue: AccountStore(preferences: DashboardPreferences(
+            showToday: defaults.object(forKey: "showTodaySection") as? Bool ?? true,
+            showContests: defaults.object(forKey: "showUpcomingContests") as? Bool ?? true,
+            showStudyPlans: defaults.object(forKey: "showStudyPlans") as? Bool ?? true)))
+    }
+
+    private var preferences: DashboardPreferences {
+        DashboardPreferences(
+            showToday: showTodaySection, showContests: showUpcomingContests, showStudyPlans: showStudyPlans)
+    }
 
     var body: some Scene {
         MenuBarExtra {
@@ -18,6 +31,7 @@ struct LeetBarApp: App {
                 showUpcomingContests: showUpcomingContests, showTodaySection: showTodaySection,
                 showStudyPlans: showStudyPlans
             )
+            .onChange(of: preferences) { _, value in account.updatePreferences(value) }
         } label: {
             Image("LeetCodeMenuBar")
                 .renderingMode(.template)
@@ -37,6 +51,7 @@ struct LeetBarApp: App {
             .onAppear {
                 NSApplication.shared.activate(ignoringOtherApps: true)
             }
+            .onChange(of: preferences) { _, value in account.updatePreferences(value) }
         }
     }
 }

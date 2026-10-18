@@ -26,6 +26,65 @@ The **Study Plans** section appears after **Today**, starts collapsed, and shows
 
 In **Settings > Menu Bar**, you can also show or hide the streak count beside the menu-bar icon.
 
+### Network usage and refresh
+
+Hidden **Today**, **Upcoming Contests**, and **Study Plans** sections do not fetch their data.
+Quick Links are stored locally and never require a network request. Daily challenge, streak,
+and contest rating remain visible in the dashboard, so hiding the menu-bar streak count does
+not disable streak requests.
+
+Opening the dashboard or clicking Refresh checks enabled data against an in-memory cache:
+
+| Data | Refresh interval |
+| --- | --- |
+| Daily challenge (incomplete or unknown), today's activity, unconfirmed streak | 1 minute |
+| Completed daily challenge, confirmed updated streak | Until the next daily reset (00:00 UTC) |
+| Study plans | 5 minutes |
+| Upcoming contests, contest rating | 1 hour |
+
+Only a completed challenge whose server-provided date matches the current UTC day gets the
+day-long cache. Local midnight does not expire it; UTC midnight does. Missing, malformed,
+future, or outdated challenge dates retain the normal one-minute refresh behavior.
+
+The streak is cached for that same day only after LeetBar observes a higher server-reported
+count than an earlier sample from the same UTC challenge day, with daily completion confirmed.
+It never calculates the increase itself or treats an unchanged count as proof of an update.
+If the app first opens after completion, or the streak update is delayed or fails, streak
+polling continues until an increase can be confirmed. An increase observed before challenge
+completion can also be confirmed once completion is known.
+
+These intervals do not introduce background polling. Refresh respects these intervals rather
+than forcing every endpoint to reload. Each fetch cycle still verifies the account. Turning on
+a section immediately loads missing or stale data, even during the ordinary one-minute refresh
+cooldown; fresh cached data appears without another request. Changes during a fetch are queued
+for when it finishes. A request cycle already underway may finish fetching a section you hide.
+Failed sections report an error and can retry after one minute; rate limiting pauses requests
+for five minutes. Caches clear on reconnect, disconnect, or app restart, and account changes
+invalidate the previous account's data.
+
+For a cold refresh, the previous implementation made `6 + P` requests, where `P` is the number
+of submission-history pages (1–25). With one page, disabling Study Plans saves 1 of 7 requests;
+disabling Today, Upcoming Contests, and Study Plans saves 3 of 7. A deterministic mock-transport
+test simulating 60 refreshes one minute apart, including the initial cold connection and a
+daily challenge that remains incomplete, verifies:
+
+| Configuration | Previous requests | Cached requests | Reduction |
+| --- | --- | --- | --- |
+| All sections enabled | 420 | 254 | 39.5% |
+| Study Plans disabled | 420 | 242 | 42.4% |
+| Today, Upcoming Contests, Study Plans disabled | 420 | 181 | 56.9% |
+
+Additional all-enabled tests verify the completed-day optimization:
+
+| Daily completion and streak scenario | Previous requests | Cached requests | Reduction |
+| --- | --- | --- | --- |
+| Already completed at launch; streak increase cannot be confirmed | 420 | 195 | 53.6% |
+| Completion observed at minute 1; streak increase observed at minute 2 | 420 | 139 | 66.9% |
+
+These are request-count comparisons, not measured latency, bandwidth, or battery savings.
+They assume successful responses, one submission page per fetch, and no restarts. Less frequent
+use yields different savings; disabling Today saves all submission pages that would be requested.
+
 LeetBar is an unofficial companion, not affiliated with LeetCode. The LeetCode name and logo belong to LeetCode.
 
 LeetBar's original source code and documentation are licensed under the [MIT License](LICENSE). The bundled LeetCode logo images are excluded from that license. This project grants no rights to LeetCode's names, logos, or trademarks; those remain subject to their owners' rights.

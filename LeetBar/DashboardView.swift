@@ -318,7 +318,7 @@ struct DashboardView: View {
             if let message = account.message {
                 Text(message).font(.caption).foregroundStyle(.orange)
             }
-            ForEach(account.snapshot?.issues ?? [], id: \.self) { issue in
+            ForEach(visibleIssues, id: \.self) { issue in
                 Text(issue).font(.caption).foregroundStyle(.orange)
             }
 
@@ -326,7 +326,7 @@ struct DashboardView: View {
                 Group {
                     if let checked = account.snapshot?.checkedAt {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Last checked")
+                            Text("Last refresh check")
                             Text(checked, format: .dateTime.month(.abbreviated).day().hour().minute())
                         }
                     } else {
@@ -344,7 +344,7 @@ struct DashboardView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(account.isWorking)
-                    .help("Refresh LeetCode")
+                    .help("Refresh stale LeetCode data. Study plans are cached for 5 minutes; contests and rating for 1 hour.")
                     .accessibilityLabel("Refresh LeetCode")
                 }
                 if account.isWorking {
@@ -363,6 +363,13 @@ struct DashboardView: View {
             }
         }
         .padding(18)
+    }
+
+    private var visibleIssues: [String] {
+        let sections = DashboardPreferences(
+            showToday: showTodaySection, showContests: showUpcomingContests, showStudyPlans: showStudyPlans).sections
+        return DashboardSection.allCases.filter { sections.contains($0) }
+            .compactMap { account.snapshot?.sectionIssues[$0] }
     }
 
     private var visibleStudyPlans: [LiveStudyPlan]? {
@@ -654,10 +661,7 @@ struct DashboardView: View {
     }
 
     private func stats(asOf now: Date) -> DailyStats? {
-        guard let snapshot = account.snapshot,
-            Calendar.current.isDate(snapshot.checkedAt, inSameDayAs: now)
-        else { return nil }
-        return snapshot.stats
+        account.snapshot?.stats(asOf: now)
     }
 
     private func sectionHeading(_ title: String, symbol: String) -> some View {
