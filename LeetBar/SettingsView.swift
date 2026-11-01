@@ -10,22 +10,27 @@ struct SettingsView: View {
     @ObservedObject var account: AccountStore
     @ObservedObject var quickLinks: QuickLinksStore
     @ObservedObject var launchAtLogin: LaunchAtLoginStore
+    @ObservedObject var diagnostics: DiagnosticsStore
     @State private var sessionCookie = ""
     @State private var csrfToken = ""
     @State private var validationMessage: String?
     @State private var quickLinkEditor: QuickLinkEditorRequest?
     @State private var quickLinksMessage: String?
     @State private var isResettingQuickLinks = false
+    @State private var isClearingLogs = false
 
     var body: some View {
         Form {
             Section("General") {
-                Toggle("Launch at login", isOn: Binding(
-                    get: { launchAtLogin.isOn },
-                    set: { enabled in
-                        Task { await launchAtLogin.setEnabled(enabled) }
-                    }
-                ))
+                Toggle(
+                    "Launch at login",
+                    isOn: Binding(
+                        get: { launchAtLogin.isOn },
+                        set: { enabled in
+                            Task { await launchAtLogin.setEnabled(enabled) }
+                        }
+                    )
+                )
                 .disabled(!launchAtLogin.canToggle)
                 .help("Start LeetBar automatically in the menu bar when you sign in to your Mac.")
                 Text(launchAtLogin.statusMessage)
@@ -144,6 +149,7 @@ struct SettingsView: View {
                             validationMessage = nil
                             account.connect(candidate)
                         } catch {
+                            DiagnosticLogger.shared.logFailure(.invalidCredentials, error: error)
                             sessionCookie = ""
                             csrfToken = ""
                             validationMessage = LeetCodeClient.message(for: error)
@@ -175,6 +181,41 @@ struct SettingsView: View {
             Section("Menu Bar") {
                 Toggle("Show streak count", isOn: $showStreak)
             }
+            Section("Diagnostics") {
+                Toggle(
+                    "Enable verbose logging",
+                    isOn: Binding(
+                        get: { diagnostics.verboseEnabled },
+                        set: { diagnostics.setVerboseEnabled($0) }
+                    ))
+                Text(
+                    "Warnings and errors are always recorded. Verbose logging adds authentication, network, and cache events."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                LabeledContent("Log storage", value: diagnostics.storageBytes.formatted(.byteCount(style: .file)))
+                HStack {
+                    Button("Export Logs…") { diagnostics.export() }
+                    Button("Show Logs in Finder") { diagnostics.showInFinder() }
+                    Button("Clear Logs…", role: .destructive) { isClearingLogs = true }
+                }
+                .disabled(diagnostics.isWorking)
+                if diagnostics.isWorking { ProgressView().controlSize(.small) }
+                if let error = diagnostics.errorMessage {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let status = diagnostics.statusMessage {
+                    Text(status).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(
+                    "Startup metadata is retained with verbose logging off. Logs exclude credentials and account data, but include usage timestamps. Each file is limited to 5 MB and records older than 7 days are removed. Review exports before sharing; nothing is uploaded automatically."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .formStyle(.grouped)
         .frame(width: 500, height: 500)
@@ -187,13 +228,24 @@ struct SettingsView: View {
         } message: {
             Text("The saved quick-link data will be removed. Your LeetCode connection will not change.")
         }
+        .alert("Clear Logs?", isPresented: $isClearingLogs) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) { Task { await diagnostics.clear() } }
+        } message: {
+            Text(
+                "Existing diagnostic entries will be deleted. Current startup metadata will remain. Your account and preferences will not change."
+            )
+        }
         .task {
             account.restore()
             launchAtLogin.refresh()
+            diagnostics.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             launchAtLogin.refresh()
+            diagnostics.refresh()
         }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in diagnostics.refresh() }
         .onDisappear {
             sessionCookie = ""
             csrfToken = ""

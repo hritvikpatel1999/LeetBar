@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct LeetBarApp: App {
+    @NSApplicationDelegateAdaptor(DiagnosticsAppDelegate.self) private var appDelegate
     @AppStorage("showStreakInMenuBar") private var showStreak = true
     @AppStorage("showQuickLinks") private var showQuickLinks = true
     @AppStorage("showUpcomingContests") private var showUpcomingContests = true
@@ -10,14 +11,18 @@ struct LeetBarApp: App {
     @AppStorage("showStudyPlans") private var showStudyPlans = true
     @StateObject private var account: AccountStore
     @StateObject private var quickLinks = QuickLinksStore()
-    @StateObject private var launchAtLogin = LaunchAtLoginStore()
+    @StateObject private var launchAtLogin = LaunchAtLoginStore(logger: .shared)
+    @StateObject private var diagnostics = DiagnosticsStore()
 
     init() {
         let defaults = UserDefaults.standard
-        _account = StateObject(wrappedValue: AccountStore(preferences: DashboardPreferences(
-            showToday: defaults.object(forKey: "showTodaySection") as? Bool ?? true,
-            showContests: defaults.object(forKey: "showUpcomingContests") as? Bool ?? true,
-            showStudyPlans: defaults.object(forKey: "showStudyPlans") as? Bool ?? true)))
+        _account = StateObject(
+            wrappedValue: AccountStore(
+                client: LeetCodeClient(logger: .shared),
+                preferences: DashboardPreferences(
+                    showToday: defaults.object(forKey: "showTodaySection") as? Bool ?? true,
+                    showContests: defaults.object(forKey: "showUpcomingContests") as? Bool ?? true,
+                    showStudyPlans: defaults.object(forKey: "showStudyPlans") as? Bool ?? true), logger: .shared))
     }
 
     private var preferences: DashboardPreferences {
@@ -47,7 +52,7 @@ struct LeetBarApp: App {
             SettingsView(
                 showStreak: $showStreak, showQuickLinks: $showQuickLinks, showUpcomingContests: $showUpcomingContests,
                 showTodaySection: $showTodaySection, showStudyPlans: $showStudyPlans, account: account,
-                quickLinks: quickLinks, launchAtLogin: launchAtLogin
+                quickLinks: quickLinks, launchAtLogin: launchAtLogin, diagnostics: diagnostics
             )
             .onAppear {
                 NSApplication.shared.activate(ignoringOtherApps: true)

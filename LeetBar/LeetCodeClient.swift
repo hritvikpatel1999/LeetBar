@@ -240,16 +240,21 @@ protocol LeetCodeServing: Sendable {
 struct LeetCodeClient: LeetCodeServing {
     let transport: any LeetCodeTransport
     let maxSubmissionPages: Int
+    let logger: DiagnosticLogger
 
-    init(transport: any LeetCodeTransport = LeetCodeURLTransport(), maxSubmissionPages: Int = 25) {
+    init(
+        transport: any LeetCodeTransport = LeetCodeURLTransport(), maxSubmissionPages: Int = 25,
+        logger: DiagnosticLogger = .disabled
+    ) {
         self.transport = transport
         self.maxSubmissionPages = maxSubmissionPages
+        self.logger = logger
     }
 
     func account(session: LeetCodeSession) async throws -> LeetCodeAccount {
         struct Payload: Decodable { let userStatus: LeetCodeAccount }
         let payload: Payload = try await query(
-            "query LeetBarAccount { userStatus { isSignedIn username } }", session: session
+            "query LeetBarAccount { userStatus { isSignedIn username } }", session: session, operation: .account
         )
         guard payload.userStatus.isSignedIn,
             let username = payload.userStatus.username, !username.isEmpty
@@ -278,7 +283,7 @@ struct LeetCodeClient: LeetCodeServing {
             query LeetBarContestRating($username: String!) {
                 userContestRanking(username: $username) { rating attendedContestsCount }
             }
-            """, variables: ["username": .string(username)], session: session)
+            """, variables: ["username": .string(username)], session: session, operation: .rating)
         guard let ranking = payload.userContestRanking else { return .unrated }
         guard ranking.attendedContestsCount >= 0 else { throw LeetCodeError.invalidResponse }
         if ranking.attendedContestsCount == 0 { return .unrated }
@@ -302,7 +307,7 @@ struct LeetCodeClient: LeetCodeServing {
                     }
                 }
             }
-            """, variables: ["limit": .integer(LiveStudyPlan.maximumCount)], session: session)
+            """, variables: ["limit": .integer(LiveStudyPlan.maximumCount)], session: session, operation: .studyPlans)
         let plans = Array(payload.studyPlanV2UserProgresses.planUserProgresses.prefix(LiveStudyPlan.maximumCount))
         guard Set(plans.map(\.id)).count == plans.count,
             plans.allSatisfy({
@@ -337,7 +342,7 @@ struct LeetCodeClient: LeetCodeServing {
                             date userStatus link question { title titleSlug difficulty }
                         }
                     }
-                    """, session: session)
+                    """, session: session, operation: .daily)
                 guard let challenge = payload.activeDailyCodingChallengeQuestion else {
                     throw LeetCodeError.invalidResponse
                 }
@@ -371,7 +376,7 @@ struct LeetCodeClient: LeetCodeServing {
                 let payload: Payload = try await query(
                     """
                     query LeetBarContests { topTwoContests { title titleSlug startTime duration } }
-                    """, session: session)
+                    """, session: session, operation: .contests)
                 contests = payload.topTwoContests.filter { $0.end > now }.sorted { $0.start < $1.start }
             } catch {
                 if error as? LeetCodeError == .signedOut || error as? LeetCodeError == .rateLimited
@@ -401,7 +406,7 @@ struct LeetCodeClient: LeetCodeServing {
                 struct Counter: Decodable { let streakCount: Int }
                 struct Payload: Decodable { let streakCounter: Counter? }
                 let payload: Payload = try await query(
-                    "query LeetBarStreak { streakCounter { streakCount } }", session: session)
+                    "query LeetBarStreak { streakCounter { streakCount } }", session: session, operation: .streak)
                 guard let counter = payload.streakCounter, counter.streakCount >= 0 else {
                     throw LeetCodeError.invalidResponse
                 }
@@ -450,7 +455,8 @@ struct LeetCodeClient: LeetCodeServing {
                         hasNext submissions { id timestamp statusDisplay titleSlug }
                     }
                 }
-                """, variables: ["offset": .integer(pageIndex * 20), "limit": .integer(20)], session: session)
+                """, variables: ["offset": .integer(pageIndex * 20), "limit": .integer(20)], session: session,
+                operation: .today, page: pageIndex + 1)
             guard let page = payload.submissionList else { throw LeetCodeError.invalidResponse }
             var crossedDayBoundary = false
             var newRecords = 0
@@ -493,8 +499,26 @@ struct LeetCodeClient: LeetCodeServing {
     private func query<Payload: Decodable>(
         _ query: String,
         variables: [String: GraphQLVariable] = [:],
-        session: LeetCodeSession
+        session: LeetCodeSession,
+        operation: DiagnosticOperation,
+        page: Int? = nil
     ) async throws -> Payload {
+        let requestID = UUID()
+        let cycleID = DiagnosticContext.cycleID
+        let started = DispatchTime.now().uptimeNanoseconds
+        var status: Int?
+        var responseBytes: Int?
+        var outcome: DiagnosticReason?
+        defer {
+            let duration = Int((DispatchTime.now().uptimeNanoseconds - started) / 1_000_000)
+            let cancelled = outcome == .cancelled
+            logger.log(
+                outcome == nil || cancelled ? .info : .warning,
+                outcome == nil ? .requestFinished : (cancelled ? .requestCancelled : .requestFailed),
+                operation: operation, requestID: requestID, cycleID: cycleID, reason: outcome,
+                status: status, durationMilliseconds: duration, responseBytes: responseBytes, page: page)
+        }
+        logger.log(.info, .requestStarted, operation: operation, requestID: requestID, cycleID: cycleID, page: page)
         var request = URLRequest(url: URL(string: "https://leetcode.com/graphql/")!)
         request.httpMethod = "POST"
         request.httpShouldHandleCookies = false
@@ -512,19 +536,42 @@ struct LeetCodeClient: LeetCodeServing {
         do {
             (data, response) = try await transport.data(for: request)
         } catch {
+            outcome = Task.isCancelled ? .cancelled : DiagnosticReason.forError(error)
             try Task.checkCancellation()
             throw LeetCodeError.network
         }
+        status = response.statusCode
+        responseBytes = data.count
         switch response.statusCode {
         case 200: break
-        case 401, 300..<400: throw LeetCodeError.signedOut
-        case 403: throw LeetCodeError.blocked
-        case 429: throw LeetCodeError.rateLimited
-        default: throw LeetCodeError.invalidResponse
+        case 401, 300..<400:
+            outcome = .signedOut
+            throw LeetCodeError.signedOut
+        case 403:
+            outcome = .blocked
+            throw LeetCodeError.blocked
+        case 429:
+            outcome = .rateLimited
+            throw LeetCodeError.rateLimited
+        default:
+            outcome = .invalidResponse
+            throw LeetCodeError.invalidResponse
         }
-        guard let envelope = try? JSONDecoder().decode(GraphQLResponse<Payload>.self, from: data),
-            envelope.errors?.isEmpty != false, let payload = envelope.data
-        else { throw LeetCodeError.invalidResponse }
+        let envelope: GraphQLResponse<Payload>
+        do {
+            envelope = try JSONDecoder().decode(GraphQLResponse<Payload>.self, from: data)
+        } catch {
+            outcome = .decoding
+            throw LeetCodeError.invalidResponse
+        }
+        guard envelope.errors?.isEmpty != false else {
+            outcome = .graphQL
+            throw LeetCodeError.invalidResponse
+        }
+        guard let payload = envelope.data else {
+            outcome = .invalidResponse
+            throw LeetCodeError.invalidResponse
+        }
         return payload
     }
 }
@@ -551,6 +598,15 @@ private struct GraphQLResponse<Payload: Decodable>: Decodable {
     struct Failure: Decodable {}
     let data: Payload?
     let errors: [Failure]?
+
+    private enum CodingKeys: String, CodingKey { case data, errors }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        errors = try container.decodeIfPresent([Failure].self, forKey: .errors)
+        // A GraphQL failure can include partial data that cannot decode as a successful payload.
+        data = errors?.isEmpty == false ? nil : try container.decodeIfPresent(Payload.self, forKey: .data)
+    }
 }
 
 private struct SubmissionPage: Decodable {
