@@ -33,10 +33,12 @@ final class LaunchAtLoginStore: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     private let service: any LoginItemServing
+    private let logger: DiagnosticLogger
 
-    init(service: any LoginItemServing = MainAppLoginItemService()) {
+    init(service: any LoginItemServing = MainAppLoginItemService(), logger: DiagnosticLogger = .disabled) {
         self.service = service
         status = service.status
+        self.logger = logger
     }
 
     var isOn: Bool {
@@ -71,9 +73,11 @@ final class LaunchAtLoginStore: ObservableObject {
         errorMessage = nil
         guard enabled != isOn else { return }
         isWorking = true
+        logger.log(.info, .loginItemChangeStarted, status: status.rawValue)
         defer {
             refresh()
             isWorking = false
+            logger.log(.info, .loginItemChangeFinished, status: status.rawValue)
         }
         do {
             if enabled {
@@ -82,6 +86,7 @@ final class LaunchAtLoginStore: ObservableObject {
                 try await service.unregister()
             }
         } catch {
+            logger.logFailure(.loginItemChangeFailed, error: error)
             let action = enabled ? "enable" : "disable"
             errorMessage = "Could not \(action) launch at login: \(error.localizedDescription)"
         }

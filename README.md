@@ -4,9 +4,9 @@ LeetBar puts your LeetCode daily challenge, streak, contest rating, practice tot
 
 ## I don't have Xcode, and I just want to use it!
 
-**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.3/LeetBar-0.1.0-preview.3-macos-universal.zip)**
+**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.4/LeetBar-0.1.0-preview.4-macos-universal.zip)**
 
-For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Preview 3**, with Launch at login, performance improvements, and a Universal app containing both architectures.
+For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Preview 4**, adding privacy-safe local logging and exportable diagnostics alongside Launch at login and performance improvements. One Universal download contains both architectures.
 
 **No Xcode, Terminal, or GitHub account needed to install.**
 
@@ -16,7 +16,7 @@ For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Pr
 
 **If macOS blocks the first launch:** this preview is not Apple-notarized. After attempting to open it, go to **System Settings > Privacy & Security > Open Anyway**, then confirm. Proceed only if you trust this download. Managed Macs may prohibit this approval; do not disable macOS security protections.
 
-Next, [connect your LeetCode account](#connect-your-account). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.3#security-and-known-limitations) before connecting.
+Next, [connect your LeetCode account](#connect-your-account). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.4#security-and-known-limitations) before connecting.
 
 ## LeetBar Overview
 
@@ -42,6 +42,41 @@ Turn the toggle off to unregister automatic startup; this does not quit LeetBar 
 your account. You can also manage it in **System Settings > General > Login Items**
 (called **Login Items & Extensions** on some macOS versions). Returning to LeetBar refreshes
 the displayed status. This starts the app at user login, not before anyone signs in.
+
+### Local diagnostic logs
+
+Open **Settings > Diagnostics** to enable **Verbose logging**, **Export Logs** to a ZIP,
+**Show in Finder**, or **Clear Logs** (with confirmation). Verbose logging is **off by default**.
+Available in Preview 4 and later. Turn verbose logging on before reproducing a problem to
+capture successful requests and authentication steps; warnings and errors do not require it.
+
+LeetBar keeps two structured JSON-lines files in `~/Library/Logs/LeetBar/`:
+
+- `warnings-errors.log`: warnings and errors are always recorded.
+- `verbose.log`: optional startup/lifecycle, authentication, cache, and network events.
+  A small startup record with app version/build, macOS version, and architecture is retained
+  in **both files even when verbose logging is off**.
+
+Authentication events cover saved-session restoration, verification, saving, reconnecting,
+expiry, and disconnecting. LeetBar currently reuses saved cookies; it does **not** have an
+automatic token-refresh API. Network events use fixed operation names, random request/cycle
+IDs, HTTP status, response size, duration, and sanitized failure categories. Disabled sections
+and cache decisions are visible with verbose logging enabled.
+
+Logs never include cookies, CSRF tokens, raw headers/bodies, GraphQL variables, usernames,
+account statistics, personal links, or arbitrary server/system error descriptions. Files are
+owner-readable/writable only. Logs stay local: exporting does not upload anything. Timestamps
+and system versions are still diagnostic information; review the ZIP before sharing it.
+
+Each file is capped at **5 MiB** (10 MiB total), with **seven-day retention**, checked when
+writing or exporting. Old entries are removed first; eviction warnings record size/retention
+limits. Exported ZIPs are outside this cap and remain wherever you save them. Clear removes
+historical entries but retains current startup metadata. Storage/export failures appear in Settings.
+
+Every write is synchronized to disk. Pending writes are drained on normal quit, handled
+SIGTERM/SIGINT termination, system sleep, and app deactivation. A force quit, crash, debugger
+hard stop, or power loss cannot guarantee a final flush; the next launch warns if the previous
+session did not record a clean shutdown.
 
 ### Network usage and refresh
 

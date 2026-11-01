@@ -24,24 +24,30 @@ final class AccountStore: ObservableObject {
     private var rateLimitedUntil = Date.distantPast
     private var streakBaseline: (day: DateInterval, count: Int)?
     private var confirmedStreakDay: DateInterval?
+    private let logger: DiagnosticLogger
 
     init(
         storage: any SessionStoring = KeychainSessionStore(), client: any LeetCodeServing = LeetCodeClient(),
-        preferences: DashboardPreferences = DashboardPreferences(), now: @escaping () -> Date = { .now }
+        preferences: DashboardPreferences = DashboardPreferences(), now: @escaping () -> Date = { .now },
+        logger: DiagnosticLogger = .disabled
     ) {
         self.storage = storage
         self.client = client
         self.preferences = preferences
         self.now = now
+        self.logger = logger
     }
 
     func restore() {
         guard !didRestore else { return }
         didRestore = true
+        logger.log(.info, .sessionRestoreStarted)
         do {
             session = try storage.load()
             hasSavedSession = session != nil
+            logger.log(.info, session == nil ? .sessionMissing : .sessionRestored)
         } catch {
+            logger.logFailure(.sessionRestoreFailed, error: error)
             hasSavedSession = true
             message = LeetCodeClient.message(for: error)
         }
@@ -51,12 +57,21 @@ final class AccountStore: ObservableObject {
     func connect(_ candidate: LeetCodeSession) -> Task<Void, Never>? {
         guard !isWorking else { return nil }
         return start { [self] ticket in
+            logger.log(.info, .connectionStarted, cycleID: DiagnosticContext.cycleID)
             do {
                 let account = try await client.account(session: candidate)
                 guard let username = account.username, !username.isEmpty else { throw LeetCodeError.signedOut }
                 try Task.checkCancellation()
                 guard generation == ticket else { return }
-                try storage.save(candidate)
+                logger.log(.info, .connectionVerified, cycleID: DiagnosticContext.cycleID)
+                logger.log(.info, .sessionSaveStarted, cycleID: DiagnosticContext.cycleID)
+                do {
+                    try storage.save(candidate)
+                    logger.log(.info, .sessionSaved, cycleID: DiagnosticContext.cycleID)
+                } catch {
+                    logger.logFailure(.sessionSaveFailed, error: error)
+                    throw error
+                }
                 session = candidate
                 hasSavedSession = true
                 didRestore = true
@@ -66,6 +81,8 @@ final class AccountStore: ObservableObject {
                 nextRefresh = now().addingTimeInterval(60)
                 try await load(session: candidate, username: username, sections: preferences.sections, ticket: ticket)
             } catch {
+                logger.logFailure(
+                    Task.isCancelled ? .connectionCancelled : .connectionFailed, error: error)
                 guard generation == ticket, !Task.isCancelled else { return }
                 if error as? LeetCodeError == .rateLimited {
                     nextRefresh = now().addingTimeInterval(300)
@@ -79,8 +96,12 @@ final class AccountStore: ObservableObject {
 
     @discardableResult
     func refresh() -> Task<Void, Never>? {
-        guard !isWorking, let session else { return nil }
+        guard !isWorking, let session else {
+            logger.log(.debug, .refreshDeferred, reason: isWorking ? .busy : .noSession)
+            return nil
+        }
         guard now() >= nextRefresh else {
+            logger.log(.debug, .refreshDeferred, reason: now() < rateLimitedUntil ? .rateLimited : .cooldown)
             message = "Wait a minute before refreshing again."
             return nil
         }
@@ -92,11 +113,14 @@ final class AccountStore: ObservableObject {
         guard !sections.isEmpty else { return nil }
         return start { [self] ticket in
             do {
+                logger.log(.info, .sessionVerificationStarted, cycleID: DiagnosticContext.cycleID)
                 let account = try await client.account(session: session)
                 guard let username = account.username, !username.isEmpty else { throw LeetCodeError.signedOut }
                 try Task.checkCancellation()
                 guard generation == ticket else { return }
+                logger.log(.info, .sessionVerified, cycleID: DiagnosticContext.cycleID)
                 if self.username != nil && self.username != username {
+                    logger.log(.info, .accountChanged, cycleID: DiagnosticContext.cycleID)
                     clearDashboardCache()
                 }
                 try await load(
@@ -105,14 +129,17 @@ final class AccountStore: ObservableObject {
                     ticket: ticket)
                 self.username = username
             } catch {
+                logger.logFailure(.refreshFailed, error: error)
                 guard generation == ticket, !Task.isCancelled else { return }
                 if error as? LeetCodeError == .signedOut {
+                    logger.log(.warning, .sessionExpired, cycleID: DiagnosticContext.cycleID, reason: .signedOut)
                     self.session = nil
                     username = nil
                     clearDashboardCache()
                     pendingSections = []
                 }
                 if error as? LeetCodeError == .rateLimited {
+                    logger.log(.warning, .refreshDeferred, cycleID: DiagnosticContext.cycleID, reason: .rateLimited)
                     nextRefresh = now().addingTimeInterval(300)
                     rateLimitedUntil = nextRefresh
                     pendingSections = []
@@ -130,6 +157,9 @@ final class AccountStore: ObservableObject {
     @discardableResult
     func updatePreferences(_ value: DashboardPreferences) -> Task<Void, Never>? {
         let enabled = value.sections.subtracting(preferences.sections)
+        for section in enabled {
+            logger.log(.debug, .sectionQueued, operation: DiagnosticOperation(section: section))
+        }
         preferences = value
         pendingSections.formUnion(enabled)
         pendingSections.formIntersection(value.sections)
@@ -139,18 +169,29 @@ final class AccountStore: ObservableObject {
     private func dueSections(_ sections: Set<DashboardSection>) -> Set<DashboardSection> {
         let date = now()
         let completedDay = completedChallengeDay(at: date)
+        for section in DashboardSection.allCases where !preferences.sections.contains(section) {
+            logger.log(.debug, .sectionSkipped, operation: DiagnosticOperation(section: section), reason: .disabled)
+        }
         return sections.filter { section in
-            if section == .daily, completedDay != nil { return false }
-            if section == .streak, let completedDay, confirmedStreakDay == completedDay { return false }
-            if let retry = retryAfter[section], date < retry { return false }
+            if section == .daily, completedDay != nil { return skip(section, reason: .completedDay) }
+            if section == .streak, let completedDay, confirmedStreakDay == completedDay {
+                return skip(section, reason: .confirmedStreak)
+            }
+            if let retry = retryAfter[section], date < retry { return skip(section, reason: .cooldown) }
             guard let fetched = fetchedAt[section] else { return true }
             if [.daily, .today, .streak].contains(section),
                 !Calendar.current.isDate(fetched, inSameDayAs: date)
             {
                 return true
             }
-            return date.timeIntervalSince(fetched) >= section.refreshInterval
+            if date.timeIntervalSince(fetched) >= section.refreshInterval { return true }
+            return skip(section, reason: .cacheFresh)
         }
+    }
+
+    private func skip(_ section: DashboardSection, reason: DiagnosticReason) -> Bool {
+        logger.log(.debug, .sectionSkipped, operation: DiagnosticOperation(section: section), reason: reason)
+        return false
     }
 
     private func completedChallengeDay(at date: Date) -> DateInterval? {
@@ -183,6 +224,7 @@ final class AccountStore: ObservableObject {
     }
 
     private func clearDashboardCache() {
+        logger.log(.debug, .cacheCleared, cycleID: DiagnosticContext.cycleID)
         snapshot = nil
         fetchedAt = [:]
         retryAfter = [:]
@@ -203,6 +245,7 @@ final class AccountStore: ObservableObject {
         session: LeetCodeSession, username: String, sections: Set<DashboardSection>, ticket: Int
     ) async throws {
         let date = now()
+        logger.log(.info, .refreshStarted, cycleID: DiagnosticContext.cycleID, count: sections.count)
         let result = try await client.dashboard(
             session: session, username: username, now: date, calendar: .current, sections: sections)
         try Task.checkCancellation()
@@ -212,17 +255,23 @@ final class AccountStore: ObservableObject {
                 fetchedAt[section] = date
                 retryAfter[section] = nil
             } else {
+                logger.log(
+                    .warning, .sectionFailed, operation: DiagnosticOperation(section: section),
+                    cycleID: DiagnosticContext.cycleID)
                 retryAfter[section] = date.addingTimeInterval(60)
             }
         }
         snapshot = snapshot?.merging(result, sections: sections) ?? result
         updateStreakConfirmation(result, sections: sections, startedAt: date)
+        logger.log(.info, .refreshFinished, cycleID: DiagnosticContext.cycleID, count: result.sectionIssues.count)
     }
 
     func disconnect() {
+        logger.log(.info, .disconnectStarted)
         do {
             try storage.delete()
         } catch {
+            logger.logFailure(.disconnectFailed, error: error)
             message = LeetCodeClient.message(for: error)
             return
         }
@@ -239,6 +288,8 @@ final class AccountStore: ObservableObject {
         nextRefresh = .distantPast
         pendingSections = []
         rateLimitedUntil = .distantPast
+        logger.log(.info, .disconnected)
+        logger.flush()
     }
 
     private func start(_ operation: @escaping @MainActor (Int) async -> Void) -> Task<Void, Never> {
@@ -247,7 +298,7 @@ final class AccountStore: ObservableObject {
         isWorking = true
         message = nil
         let task = Task { @MainActor in
-            await operation(ticket)
+            await DiagnosticContext.$cycleID.withValue(UUID()) { await operation(ticket) }
             if generation == ticket {
                 isWorking = false
                 work = nil

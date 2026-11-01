@@ -2,6 +2,76 @@ import XCTest
 
 @MainActor
 final class AccountStoreTests: XCTestCase {
+    func testAuthenticationAndCacheDiagnosticsContainNoAccountOrCookieValues() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("LeetBarAuthTests-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let logger = DiagnosticLogger(directory: directory, verboseEnabled: true)
+        let transport = DashboardTransport()
+        let storage = TestSessionStore()
+        let candidate = try LeetCodeSession(sessionCookie: "PRIVATE_AUTH_SENTINEL", csrfToken: "PRIVATE_CSRF_SENTINEL")
+        try storage.save(candidate)
+        let account = AccountStore(
+            storage: storage, client: LeetCodeClient(transport: transport, logger: logger),
+            preferences: DashboardPreferences(showStudyPlans: false), logger: logger)
+        account.restore()
+        await account.refresh()?.value
+        account.disconnect()
+        logger.flush()
+        let text = try String(contentsOf: directory.appendingPathComponent("verbose.log"), encoding: .utf8)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let entries = try text.split(separator: "\n").map {
+            try decoder.decode(DiagnosticRecord.self, from: Data($0.utf8))
+        }
+        XCTAssertTrue(entries.contains { $0.event == .sessionRestored })
+        XCTAssertTrue(entries.contains { $0.event == .disconnected })
+        XCTAssertTrue(entries.contains { $0.event == .sectionSkipped && $0.reason == .disabled })
+        let cycles = Set(entries.filter { $0.event == .requestStarted }.compactMap(\.cycleID))
+        XCTAssertEqual(cycles.count, 1)
+        XCTAssertEqual(entries.first { $0.event == .refreshStarted }?.cycleID, cycles.first)
+        XCTAssertFalse(text.contains("PRIVATE_"))
+        XCTAssertFalse(text.contains("example"))
+    }
+
+    func testAuthFailureIsRecordedWithVerboseOffAndNumericKeychainCodeOnly() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("LeetBarAuthTests-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let logger = DiagnosticLogger(directory: directory)
+        let account = AccountStore(
+            storage: TestSessionStore(failSave: true), client: TestLeetCodeService(), logger: logger)
+        await account.connect(testSession())?.value
+        logger.flush()
+        let data = try Data(contentsOf: directory.appendingPathComponent("warnings-errors.log"))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let entries = try data.split(separator: 0x0a).map { try decoder.decode(DiagnosticRecord.self, from: Data($0)) }
+        let failure = try XCTUnwrap(entries.first { $0.event == .sessionSaveFailed })
+        XCTAssertEqual(failure.reason, .keychain)
+        XCTAssertEqual(failure.systemCode, -1)
+        XCTAssertNil(account.username)
+        XCTAssertFalse(account.hasSavedSession)
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("verbose.log")).count, 0)
+    }
+
+    func testExpiredSessionIsRecordedWithVerboseDisabled() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("LeetBarAuthTests-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let logger = DiagnosticLogger(directory: directory)
+        let storage = TestSessionStore()
+        try storage.save(testSession())
+        let account = AccountStore(
+            storage: storage, client: TestLeetCodeService(identityError: .signedOut), logger: logger)
+        account.restore()
+        await account.refresh()?.value
+        logger.flush()
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try Data(contentsOf: directory.appendingPathComponent("warnings-errors.log"))
+        let entries = try data.split(separator: 0x0a).map { try decoder.decode(DiagnosticRecord.self, from: Data($0)) }
+        XCTAssertTrue(entries.contains { $0.event == .sessionExpired && $0.reason == .signedOut })
+        XCTAssertNil(account.snapshot)
+    }
+
     func testCompletedDailyIsCachedButUnconfirmedStreakKeepsPolling() async throws {
         let clock = TestClock()
         let transport = DashboardTransport()
