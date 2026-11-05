@@ -4,9 +4,15 @@ LeetBar puts your LeetCode daily challenge, streak, contest rating, practice tot
 
 ## I don't have Xcode, and I just want to use it!
 
-**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.4/LeetBar-0.1.0-preview.4-macos-universal.zip)**
+**[Download LeetBar for Mac](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.5/LeetBar-0.1.0-preview.5-macos-universal.zip)**
 
-For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Preview 4**, adding privacy-safe local logging and exportable diagnostics alongside Launch at login and performance improvements. One Universal download contains both architectures.
+For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Preview 5**, adding resumable first-run setup, redesigned Settings, and four color themes alongside local diagnostics, Launch at login, and performance improvements. One Universal download contains both architectures.
+
+Smaller architecture-specific downloads are also available:
+[Apple silicon](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.5/LeetBar-0.1.0-preview.5-macos-arm64.zip) |
+[Intel](https://github.com/hritvikpatel1999/LeetBar/releases/download/v0.1.0-preview.5/LeetBar-0.1.0-preview.5-macos-x86_64.zip).
+[Checksums and release notes](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.5)
+are provided with the downloads. Preview 4 and its downloads remain available as a separate older release.
 
 **No Xcode, Terminal, or GitHub account needed to install.**
 
@@ -16,7 +22,7 @@ For **Apple silicon and Intel Macs** running **macOS 14 or later**. This is **Pr
 
 **If macOS blocks the first launch:** this preview is not Apple-notarized. After attempting to open it, go to **System Settings > Privacy & Security > Open Anyway**, then confirm. Proceed only if you trust this download. Managed Macs may prohibit this approval; do not disable macOS security protections.
 
-Next, [connect your LeetCode account](#connect-your-account). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.4#security-and-known-limitations) before connecting.
+Next, follow [first-run setup](#first-run-setup). See the [release's security notes and known limitations](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.5#security-and-known-limitations) before connecting.
 
 ## LeetBar Overview
 
@@ -26,7 +32,7 @@ The **Study Plans** section appears after **Today**, starts collapsed, and shows
 
 In **Settings > Preferences**, you can also show or hide the streak count beside the menu-bar icon.
 
-### Reopening an already-running app (source builds)
+### Reopening an already-running app
 
 Open LeetBar again from Finder, Spotlight, or `open /Applications/LeetBar.app` to bring its
 Settings window forward, or resume setup if onboarding is unfinished. Repeated opens reuse Settings rather than launching another app
@@ -35,9 +41,9 @@ instance. Click the menu-bar icon to open the dashboard as usual.
 The current SwiftUI menu-bar dashboard has no public programmatic presentation API, so
 Settings is the supported fallback on macOS 14 and later. Existing connected users start
 quietly; new users see setup on a manual launch. Launch at login remains quiet.
-This behavior is not included in the Preview 4 download above.
+This behavior is included starting with Preview 5.
 
-### First-run setup (source builds)
+### First-run setup
 
 New users get a centered setup window with the same 500 x 500-point content area as Settings:
 
@@ -66,7 +72,7 @@ Failures loading dashboard data after successful authentication do not falsely r
 failed login. Previously installed users with a saved session skip first-run setup, and
 completed setup does not repeat after a normal restart or disconnect.
 
-### Focused Settings pages (source builds)
+### Focused Settings pages
 
 Settings uses five icon-based native navigation buttons in the same 500 x 500-point content area as setup:
 **Preferences**, **Appearance**, **Quick Links**, **Account**, and **Diagnostics**. The last selected tab
@@ -97,12 +103,12 @@ to reveal the connection form, or **Cancel** to keep the current session. A reje
 reveals the form automatically. Credential drafts are cleared when leaving Account or
 closing Settings; an already-started connection can continue.
 
-This layout is not included in the Preview 4 download.
+This layout is included starting with Preview 5.
 
 ### Launch at login
 
-To start LeetBar automatically when you sign in to your Mac, open **Settings > General**
-(**Settings > Preferences** in source builds)
+To start LeetBar automatically when you sign in to your Mac, open **Settings > Preferences**
+(**Settings > General** in Preview 4 and earlier)
 and enable **Launch at login**. This is opt-in: LeetBar never registers itself automatically.
 It starts quietly in the menu bar, without a Dock icon or a Settings window.
 
