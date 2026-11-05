@@ -23,7 +23,7 @@ enum DiagnosticEvent: String, Codable, Sendable {
     case sectionSkipped, sectionFailed, sectionQueued, cacheCleared
     case requestStarted, requestFinished, requestFailed, requestCancelled
     case loginItemChangeStarted, loginItemChangeFinished, loginItemChangeFailed
-    case browserOpenFailed
+    case browserOpenFailed, shortcutRegistrationFailed
 }
 
 enum DiagnosticOperation: String, Codable, Sendable {

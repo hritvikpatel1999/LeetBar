@@ -103,12 +103,15 @@ struct SettingsTabBar: NSViewRepresentable {
             super.drawInterior(withFrame: frame, in: controlView)
         }
 
-        override func drawTitle(_ title: NSAttributedString, withFrame frame: NSRect, in controlView: NSView) -> NSRect {
-            super.drawTitle(title, withFrame: frame.offsetBy(dx: 0, dy: controlView.isFlipped ? -2 : 2), in: controlView)
+        override func drawTitle(_ title: NSAttributedString, withFrame frame: NSRect, in controlView: NSView) -> NSRect
+        {
+            super.drawTitle(
+                title, withFrame: frame.offsetBy(dx: 0, dy: controlView.isFlipped ? -2 : 2), in: controlView)
         }
 
         override func drawImage(_ image: NSImage, withFrame frame: NSRect, in controlView: NSView) {
-            super.drawImage(image, withFrame: frame.offsetBy(dx: 0, dy: controlView.isFlipped ? 4 : -4), in: controlView)
+            super.drawImage(
+                image, withFrame: frame.offsetBy(dx: 0, dy: controlView.isFlipped ? 4 : -4), in: controlView)
         }
     }
 
@@ -139,6 +142,7 @@ struct SettingsView: View {
     @ObservedObject var quickLinks: QuickLinksStore
     @ObservedObject var launchAtLogin: LaunchAtLoginStore
     @ObservedObject var diagnostics: DiagnosticsStore
+    var shortcutError: String?
     var logger: DiagnosticLogger = .shared
     @AppStorage("settingsTab") private var selectedTab: SettingsTab = .preferences
     @Environment(\.leetBarTheme) private var theme
@@ -292,6 +296,17 @@ struct SettingsView: View {
                     showStreak: $showStreak, showQuickLinks: $showQuickLinks,
                     showUpcomingContests: $showUpcomingContests, showTodaySection: $showTodaySection,
                     showStudyPlans: $showStudyPlans)
+            }
+            LeetBarCard {
+                HStack {
+                    Text("Open dashboard").font(.headline)
+                    Spacer()
+                    Text("⌘⌥L").font(.headline.monospaced())
+                }
+                Text("Press Command-Option-L from any app to open or close LeetBar. Press Escape to dismiss it.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let shortcutError { errorText(shortcutError) }
             }
             LeetBarCard {
                 LeetBarToggleRow(

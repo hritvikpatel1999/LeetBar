@@ -14,6 +14,10 @@ Smaller architecture-specific downloads are also available:
 [Checksums and release notes](https://github.com/hritvikpatel1999/LeetBar/releases/tag/v0.1.0-preview.5)
 are provided with the downloads. Preview 4 and its downloads remain available as a separate older release.
 
+**Latest source changes:** the global **Command-Option-L** dashboard shortcut and the
+Finder/Spotlight app-icon fix are available when building from source, but are not yet
+included in the Preview 5 downloads above.
+
 **No Xcode, Terminal, or GitHub account needed to install.**
 
 1. Open the downloaded ZIP to extract **LeetBar**.
@@ -38,10 +42,26 @@ Open LeetBar again from Finder, Spotlight, or `open /Applications/LeetBar.app` t
 Settings window forward, or resume setup if onboarding is unfinished. Repeated opens reuse Settings rather than launching another app
 instance. Click the menu-bar icon to open the dashboard as usual.
 
-The current SwiftUI menu-bar dashboard has no public programmatic presentation API, so
-Settings is the supported fallback on macOS 14 and later. Existing connected users start
+Opening the app from Finder or Spotlight brings Settings forward. Existing connected users start
 quietly; new users see setup on a manual launch. Launch at login remains quiet.
 This behavior is included starting with Preview 5.
+
+### Global keyboard shortcut (source builds)
+
+Press **Command-Option-L** (**⌘⌥L**) from any app to open or close the dashboard beside
+LeetBar's menu-bar icon. LeetBar must already be running. **Escape** or clicking outside
+the dashboard dismisses it; clicking the menu-bar icon still toggles it normally.
+
+The shortcut is fixed, registers only this key combination, and requires no Accessibility
+or Input Monitoring permission. If macOS cannot register it, **Settings > Preferences**
+shows an error; clicking the menu-bar icon continues to work. A conflicting app shortcut
+may need to be freed before restarting LeetBar. The dashboard now uses a native AppKit
+status item and popover to support public programmatic presentation while retaining its
+SwiftUI content. This shortcut is not included in the published Preview 5 downloads.
+
+If startup is waiting for macOS approval to access your existing Keychain session, finish
+that prompt locally before using the shortcut. Only approve it if you trust the installed
+LeetBar build; no Accessibility or Input Monitoring approval is needed for the shortcut.
 
 ### First-run setup
 
@@ -218,6 +238,13 @@ They assume successful responses, one submission page per fetch, and no restarts
 use yields different savings; disabling Today saves all submission pages that would be requested.
 
 LeetBar is an unofficial companion, not affiliated with LeetCode. The LeetCode name and logo belong to LeetCode.
+
+The app icon uses the [LeetCode logo](https://leetcode.com/static/images/LeetCode_logo_rvs.png)
+on a dark background, separately from the template menu-bar icon. Source builds include
+the app icon for Finder and Spotlight; Preview 5's published downloads predate this fix.
+macOS search can retain a cached placeholder after replacing an older build. Dismiss and
+reopen search after installation; a stale search icon does not by itself mean the app's
+bundled icon is missing. Avoid keeping multiple installed copies with the same app name.
 
 LeetBar's original source code and documentation are licensed under the [MIT License](LICENSE). The bundled LeetCode logo images are excluded from that license. This project grants no rights to LeetCode's names, logos, or trademarks; those remain subject to their owners' rights.
 

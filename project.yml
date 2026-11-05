@@ -22,6 +22,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.leetbar.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: LeetBar
         INFOPLIST_KEY_LSUIElement: YES
@@ -44,6 +45,8 @@ targets:
       - LeetBar/LaunchAtLoginStore.swift
       - LeetBar/DiagnosticLogger.swift
       - LeetBar/DiagnosticsStore.swift
+      - LeetBar/GlobalShortcut.swift
+      - LeetBar/MenuBarController.swift
       - LeetBar/ReopenSettingsBridge.swift
       - LeetBar/OnboardingStore.swift
       - LeetBar/OnboardingView.swift

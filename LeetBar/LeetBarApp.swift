@@ -11,7 +11,8 @@ struct LeetBarApp: App {
     @AppStorage("showStudyPlans") private var showStudyPlans = true
     @StateObject private var account: AccountStore
     @StateObject private var onboarding: OnboardingStore
-    @StateObject private var quickLinks = QuickLinksStore()
+    @StateObject private var quickLinks: QuickLinksStore
+    @StateObject private var shortcut: GlobalShortcutStore
     @StateObject private var launchAtLogin = LaunchAtLoginStore(logger: .shared)
     @StateObject private var diagnostics = DiagnosticsStore()
 
@@ -23,8 +24,35 @@ struct LeetBarApp: App {
                 showToday: defaults.object(forKey: "showTodaySection") as? Bool ?? true,
                 showContests: defaults.object(forKey: "showUpcomingContests") as? Bool ?? true,
                 showStudyPlans: defaults.object(forKey: "showStudyPlans") as? Bool ?? true), logger: .shared)
+        let onboarding = OnboardingStore(account: account, logger: .shared)
+        let quickLinks = QuickLinksStore()
+        let shortcut = GlobalShortcutStore(logger: .shared)
         _account = StateObject(wrappedValue: account)
-        _onboarding = StateObject(wrappedValue: OnboardingStore(account: account, logger: .shared))
+        _onboarding = StateObject(wrappedValue: onboarding)
+        _quickLinks = StateObject(wrappedValue: quickLinks)
+        _shortcut = StateObject(wrappedValue: shortcut)
+        guard let image = NSImage(named: "LeetCodeMenuBar") else {
+            preconditionFailure("LeetBar menu-bar image is missing.")
+        }
+        let delegate = appDelegate
+        delegate.setMenuBarController(
+            MenuBarController(
+                account: account, shortcut: shortcut, image: image,
+                bridge: AnyView(
+                    ReopenSettingsBridge(
+                        registerReopenAction: delegate.setReopenAction,
+                        registerStartupAction: delegate.setStartupAction,
+                        needsSetup: {
+                            onboarding.prepare()
+                            return !onboarding.isComplete
+                        })),
+                makeDashboard: {
+                    AnyView(MenuBarDashboard(account: account, onboarding: onboarding, quickLinks: quickLinks))
+                },
+                onOpen: {
+                    onboarding.prepare()
+                    account.refreshIfNeeded()
+                }))
     }
 
     private var preferences: DashboardPreferences {
@@ -33,36 +61,6 @@ struct LeetBarApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            DashboardView(
-                account: account, onboarding: onboarding, quickLinks: quickLinks, showQuickLinks: showQuickLinks,
-                showUpcomingContests: showUpcomingContests, showTodaySection: showTodaySection,
-                showStudyPlans: showStudyPlans
-            )
-            .leetBarAppearance()
-            .onChange(of: preferences) { _, value in account.updatePreferences(value) }
-        } label: {
-            HStack {
-                Image("LeetCodeMenuBar")
-                    .renderingMode(.template)
-                    .accessibilityLabel("LeetBar")
-                if showStreak {
-                    Text(account.snapshot?.streak.map(String.init) ?? "--")
-                }
-            }
-            .background {
-                ReopenSettingsBridge(
-                    registerReopenAction: appDelegate.setReopenAction,
-                    registerStartupAction: appDelegate.setStartupAction,
-                    needsSetup: {
-                        onboarding.prepare()
-                        return !onboarding.isComplete
-                    }
-                ).frame(width: 0, height: 0)
-            }
-        }
-        .menuBarExtraStyle(.window)
-
         Settings {
             Group {
                 if !onboarding.isPrepared {
@@ -77,7 +75,8 @@ struct LeetBarApp: App {
                         showStreak: $showStreak, showQuickLinks: $showQuickLinks,
                         showUpcomingContests: $showUpcomingContests,
                         showTodaySection: $showTodaySection, showStudyPlans: $showStudyPlans, account: account,
-                        quickLinks: quickLinks, launchAtLogin: launchAtLogin, diagnostics: diagnostics)
+                        quickLinks: quickLinks, launchAtLogin: launchAtLogin, diagnostics: diagnostics,
+                        shortcutError: shortcut.errorMessage)
                 }
             }
             .leetBarAppearance()

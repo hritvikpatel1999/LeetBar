@@ -113,6 +113,7 @@ final class DiagnosticsAppDelegate: NSObject, NSApplicationDelegate {
     private var didLaunch = false
     private var launchedAtLogin = false
     private var handledStartup = false
+    private var menuBarController: MenuBarController?
     private static let activeSessionKey = "diagnosticsSessionActive"
 
     override convenience init() {
@@ -135,9 +136,14 @@ final class DiagnosticsAppDelegate: NSObject, NSApplicationDelegate {
         reopenAction = action
         if pendingReopen {
             pendingReopen = false
-            // Scene setup may still be rendering when the menu-bar label registers its action.
+            // Scene setup may still be rendering when the status-item bridge registers its action.
             DispatchQueue.main.async { [weak self] in self?.reopenAction?() }
         }
+    }
+
+    func setMenuBarController(_ controller: MenuBarController) {
+        menuBarController = controller
+        if didLaunch { controller.start() }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -170,6 +176,7 @@ final class DiagnosticsAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         recordStartup()
+        menuBarController?.start()
         let launchReason = NSAppleEventManager.shared().currentAppleEvent?
             .paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
         completeLaunch(isLoginItem: launchReason == keyAELaunchedAsLogInItem)
@@ -201,6 +208,7 @@ final class DiagnosticsAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        menuBarController?.stop()
         recordShutdown()
     }
 
