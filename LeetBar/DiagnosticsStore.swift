@@ -107,6 +107,12 @@ final class DiagnosticsAppDelegate: NSObject, NSApplicationDelegate {
     private let defaults: UserDefaults
     private var observers: [NSObjectProtocol] = []
     private var signals: [DispatchSourceSignal] = []
+    private var reopenAction: (@MainActor () -> Void)?
+    private var pendingReopen = false
+    private var startupAction: (@MainActor () -> Void)?
+    private var didLaunch = false
+    private var launchedAtLogin = false
+    private var handledStartup = false
     private static let activeSessionKey = "diagnosticsSessionActive"
 
     override convenience init() {
@@ -125,8 +131,48 @@ final class DiagnosticsAppDelegate: NSObject, NSApplicationDelegate {
         logger.flush()
     }
 
+    func setReopenAction(_ action: @escaping @MainActor () -> Void) {
+        reopenAction = action
+        if pendingReopen {
+            pendingReopen = false
+            // Scene setup may still be rendering when the menu-bar label registers its action.
+            DispatchQueue.main.async { [weak self] in self?.reopenAction?() }
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        logger.log(.info, .appReopened)
+        if let reopenAction {
+            reopenAction()
+        } else {
+            pendingReopen = true
+        }
+        return false
+    }
+
+    func setStartupAction(_ action: @escaping @MainActor () -> Void) {
+        startupAction = action
+        presentStartupIfReady()
+    }
+
+    func completeLaunch(isLoginItem: Bool) {
+        didLaunch = true
+        launchedAtLogin = isLoginItem
+        presentStartupIfReady()
+    }
+
+    private func presentStartupIfReady() {
+        guard didLaunch, !handledStartup, let startupAction else { return }
+        handledStartup = true
+        guard !launchedAtLogin else { return }
+        DispatchQueue.main.async { startupAction() }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         recordStartup()
+        let launchReason = NSAppleEventManager.shared().currentAppleEvent?
+            .paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
+        completeLaunch(isLoginItem: launchReason == keyAELaunchedAsLogInItem)
         let center = NSWorkspace.shared.notificationCenter
         observers.append(
             center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: nil) {

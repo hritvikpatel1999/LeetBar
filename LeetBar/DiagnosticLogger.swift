@@ -12,7 +12,7 @@ enum DiagnosticLevel: String, Codable, Sendable {
 }
 
 enum DiagnosticEvent: String, Codable, Sendable {
-    case startup, shutdown, sleep, wake, inactive, previousSessionUnclean
+    case startup, shutdown, sleep, wake, inactive, previousSessionUnclean, appReopened
     case verboseEnabled, verboseDisabled, logsCleared, logsEvicted, logsExportFailed, logsClearFailed, logsFolderFailed
     case sessionRestoreStarted, sessionRestored, sessionMissing, sessionRestoreFailed
     case sessionVerificationStarted, sessionVerified
@@ -23,6 +23,7 @@ enum DiagnosticEvent: String, Codable, Sendable {
     case sectionSkipped, sectionFailed, sectionQueued, cacheCleared
     case requestStarted, requestFinished, requestFailed, requestCancelled
     case loginItemChangeStarted, loginItemChangeFinished, loginItemChangeFailed
+    case browserOpenFailed
 }
 
 enum DiagnosticOperation: String, Codable, Sendable {

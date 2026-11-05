@@ -1,6 +1,19 @@
 import Combine
 import Foundation
 
+enum ConnectionPhase: Equatable {
+    case idle, verifying, saving, loading, connected, failed
+
+    var statusMessage: String? {
+        switch self {
+        case .verifying: "Checking your LeetCode session..."
+        case .saving: "Saving securely in macOS Keychain..."
+        case .loading: "Loading your dashboard..."
+        default: nil
+        }
+    }
+}
+
 @MainActor
 final class AccountStore: ObservableObject {
     @Published private(set) var username: String?
@@ -8,6 +21,7 @@ final class AccountStore: ObservableObject {
     @Published private(set) var hasSavedSession = false
     @Published private(set) var isWorking = false
     @Published private(set) var message: String?
+    @Published private(set) var connectionPhase: ConnectionPhase = .idle
 
     private let storage: any SessionStoring
     private let client: any LeetCodeServing
@@ -56,7 +70,9 @@ final class AccountStore: ObservableObject {
     @discardableResult
     func connect(_ candidate: LeetCodeSession) -> Task<Void, Never>? {
         guard !isWorking else { return nil }
+        connectionPhase = .verifying
         return start { [self] ticket in
+            var savedCandidate = false
             logger.log(.info, .connectionStarted, cycleID: DiagnosticContext.cycleID)
             do {
                 let account = try await client.account(session: candidate)
@@ -65,6 +81,7 @@ final class AccountStore: ObservableObject {
                 guard generation == ticket else { return }
                 logger.log(.info, .connectionVerified, cycleID: DiagnosticContext.cycleID)
                 logger.log(.info, .sessionSaveStarted, cycleID: DiagnosticContext.cycleID)
+                connectionPhase = .saving
                 do {
                     try storage.save(candidate)
                     logger.log(.info, .sessionSaved, cycleID: DiagnosticContext.cycleID)
@@ -76,14 +93,25 @@ final class AccountStore: ObservableObject {
                 hasSavedSession = true
                 didRestore = true
                 self.username = username
+                savedCandidate = true
+                connectionPhase = .loading
                 clearDashboardCache()
                 rateLimitedUntil = .distantPast
                 nextRefresh = now().addingTimeInterval(60)
                 try await load(session: candidate, username: username, sections: preferences.sections, ticket: ticket)
+                guard generation == ticket, !Task.isCancelled else { return }
+                connectionPhase = .connected
             } catch {
                 logger.logFailure(
                     Task.isCancelled ? .connectionCancelled : .connectionFailed, error: error)
                 guard generation == ticket, !Task.isCancelled else { return }
+                connectionPhase = savedCandidate && error as? LeetCodeError != .signedOut ? .connected : .failed
+                if savedCandidate && error as? LeetCodeError == .signedOut {
+                    session = nil
+                    self.username = nil
+                    clearDashboardCache()
+                    logger.log(.warning, .sessionExpired, reason: .signedOut)
+                }
                 if error as? LeetCodeError == .rateLimited {
                     nextRefresh = now().addingTimeInterval(300)
                     rateLimitedUntil = nextRefresh
@@ -132,6 +160,7 @@ final class AccountStore: ObservableObject {
                 logger.logFailure(.refreshFailed, error: error)
                 guard generation == ticket, !Task.isCancelled else { return }
                 if error as? LeetCodeError == .signedOut {
+                    connectionPhase = .failed
                     logger.log(.warning, .sessionExpired, cycleID: DiagnosticContext.cycleID, reason: .signedOut)
                     self.session = nil
                     username = nil
@@ -282,6 +311,7 @@ final class AccountStore: ObservableObject {
         username = nil
         clearDashboardCache()
         hasSavedSession = false
+        connectionPhase = .idle
         isWorking = false
         didRestore = true
         message = nil

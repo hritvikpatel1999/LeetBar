@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var account: AccountStore
+    @ObservedObject var onboarding: OnboardingStore
     @ObservedObject var quickLinks: QuickLinksStore
     let showQuickLinks: Bool
     let showUpcomingContests: Bool
@@ -75,8 +76,9 @@ struct DashboardView: View {
         .onPreferenceChange(ContentHeightKey.self) { height in
             if height > 0 { contentHeight = ceil(height) }
         }
-        .tint(.teal)
+        .background { LeetBarSurface() }
         .task {
+            onboarding.prepare()
             account.refreshIfNeeded()
         }
     }
@@ -125,6 +127,13 @@ struct DashboardView: View {
             }
 
             Divider()
+
+            if !onboarding.isComplete {
+                SettingsLink {
+                    Label("Continue setup", systemImage: "person.crop.circle.badge.plus")
+                }
+                .buttonStyle(.borderedProminent)
+            }
 
             if account.hasSavedSession {
                 VStack(alignment: .leading, spacing: 4) {
@@ -344,7 +353,9 @@ struct DashboardView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(account.isWorking)
-                    .help("Refresh stale LeetCode data. Study plans are cached for 5 minutes; contests and rating for 1 hour.")
+                    .help(
+                        "Refresh stale LeetCode data. Study plans are cached for 5 minutes; contests and rating for 1 hour."
+                    )
                     .accessibilityLabel("Refresh LeetCode")
                 }
                 if account.isWorking {
@@ -367,7 +378,8 @@ struct DashboardView: View {
 
     private var visibleIssues: [String] {
         let sections = DashboardPreferences(
-            showToday: showTodaySection, showContests: showUpcomingContests, showStudyPlans: showStudyPlans).sections
+            showToday: showTodaySection, showContests: showUpcomingContests, showStudyPlans: showStudyPlans
+        ).sections
         return DashboardSection.allCases.filter { sections.contains($0) }
             .compactMap { account.snapshot?.sectionIssues[$0] }
     }

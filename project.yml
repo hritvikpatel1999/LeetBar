@@ -44,6 +44,14 @@ targets:
       - LeetBar/LaunchAtLoginStore.swift
       - LeetBar/DiagnosticLogger.swift
       - LeetBar/DiagnosticsStore.swift
+      - LeetBar/ReopenSettingsBridge.swift
+      - LeetBar/OnboardingStore.swift
+      - LeetBar/OnboardingView.swift
+      - LeetBar/PreferencesControls.swift
+      - LeetBar/LeetBarStyle.swift
+      - LeetBar/SettingsView.swift
+      - LeetBar/SettingsWindowTitle.swift
+      - LeetBar/DashboardView.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.leetbar.tests
