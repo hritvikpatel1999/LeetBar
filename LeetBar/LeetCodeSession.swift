@@ -11,11 +11,27 @@ struct LeetCodeSession: Codable, Sendable, Equatable, CustomStringConvertible, C
     init(sessionCookie: String, csrfToken: String) throws {
         let session = sessionCookie.trimmingCharacters(in: .whitespacesAndNewlines)
         let csrf = csrfToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard Self.isCookieValue(session), Self.isCookieValue(csrf) else {
+        guard Self.validationMessage(sessionCookie: session, csrfToken: csrf) == nil else {
             throw SessionStorageError.invalidCookie
         }
         self.sessionCookie = session
         self.csrfToken = csrf
+    }
+
+    static func validationMessage(sessionCookie: String, csrfToken: String) -> String? {
+        for (name, input) in [("LEETCODE_SESSION", sessionCookie), ("csrftoken", csrfToken)] {
+            let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            if value.isEmpty { return "Enter the \(name) cookie value." }
+            if value.lowercased().hasPrefix("cookie:") || value.hasPrefix("LEETCODE_SESSION=")
+                || value.hasPrefix("csrftoken=") || value.contains(";")
+            {
+                return "Paste only the \(name) value, without cookie names or a Cookie header."
+            }
+            if !isCookieValue(value) {
+                return "The \(name) value contains unsupported characters or is too long. Copy only its Value."
+            }
+        }
+        return nil
     }
 
     private static func isCookieValue(_ value: String) -> Bool {

@@ -12,7 +12,7 @@ settings:
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "-"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: 4
+    CURRENT_PROJECT_VERSION: 5
 targets:
   LeetBar:
     type: application
@@ -44,6 +44,14 @@ targets:
       - LeetBar/LaunchAtLoginStore.swift
       - LeetBar/DiagnosticLogger.swift
       - LeetBar/DiagnosticsStore.swift
+      - LeetBar/ReopenSettingsBridge.swift
+      - LeetBar/OnboardingStore.swift
+      - LeetBar/OnboardingView.swift
+      - LeetBar/PreferencesControls.swift
+      - LeetBar/LeetBarStyle.swift
+      - LeetBar/SettingsView.swift
+      - LeetBar/SettingsWindowTitle.swift
+      - LeetBar/DashboardView.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.leetbar.tests
